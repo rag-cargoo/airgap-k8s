@@ -1,0 +1,3 @@
+# Optional Helm chart list for Prometheus.
+# Example:
+# prometheus-community/prometheus:<chart-version>

@@ -1,0 +1,5 @@
+# One container image per line.
+# Choose one DB engine before implementation.
+# Example:
+# docker.io/library/mariadb:<version>
+# docker.io/library/mysql:<version>

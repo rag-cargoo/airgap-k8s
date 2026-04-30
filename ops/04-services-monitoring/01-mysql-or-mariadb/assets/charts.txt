@@ -1,0 +1,2 @@
+# Optional Helm chart list for MySQL or MariaDB.
+# Leave empty when this service is implemented with plain manifests.

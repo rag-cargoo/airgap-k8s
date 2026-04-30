@@ -1,0 +1,3 @@
+# Optional Helm chart list for Grafana Alloy.
+# Example:
+# grafana/alloy:<chart-version>

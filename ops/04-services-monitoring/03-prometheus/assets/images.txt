@@ -1,0 +1,2 @@
+# One container image per line.
+# Image list depends on the selected Prometheus chart or manifests.

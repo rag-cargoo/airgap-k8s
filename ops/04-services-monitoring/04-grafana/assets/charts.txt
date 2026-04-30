@@ -1,0 +1,3 @@
+# Optional Helm chart list for Grafana.
+# Example:
+# grafana/grafana:<chart-version>
