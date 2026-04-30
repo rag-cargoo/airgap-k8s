@@ -1,4 +1,17 @@
 .DS_Store
 *.swp
 *.swo
+*.pem
+*.key
 .codex/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.env
+.env.local
+ops/01-airgap-linux-environment/aws-terraform-simulation/.terraform/
+ops/01-airgap-linux-environment/aws-terraform-simulation/terraform.tfvars
+ops/01-airgap-linux-environment/aws-terraform-simulation/*.auto.tfvars
+ops/01-airgap-linux-environment/aws-terraform-simulation/tfplan
+crash.log
