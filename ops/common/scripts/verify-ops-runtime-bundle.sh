@@ -41,7 +41,7 @@ fi
 printf '[4/4] [CHECK] required authored file preview\n'
 check_path "ops root readme" "${STAGE_ROOT}/ops/README.md"
 check_path "kube cluster readme" "${STAGE_ROOT}/ops/03-kubernetes-cluster/README.md"
-check_path "preflight script" "${STAGE_ROOT}/ops/03-kubernetes-cluster/common/scripts/kubeadm-preflight-check.sh"
+check_path "manual kubeadm preflight script" "${STAGE_ROOT}/ops/03-kubernetes-cluster/manual-kubeadm/02-preflight/scripts/02-01-kubeadm-preflight-check.sh"
 
 if [[ "${failures}" -ne 0 ]]; then
   printf '\n[RESULT] FAILED\n'

@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../.." && pwd)"
+source "${PROJECT_ROOT}/ops/01-airgap-linux-environment/scripts/load-project-env.sh"
+
+AIRGAP_SSH_PORT="${AIRGAP_SSH_PORT:-22}"
+AIRGAP_USE_BASTION="${AIRGAP_USE_BASTION:-false}"
+AIRGAP_MASTER_HOST="${AIRGAP_MASTER_HOST:-k8s-master}"
+AIRGAP_WORKER1_HOST="${AIRGAP_WORKER1_HOST:-k8s-worker1}"
+
+require_env() {
+  local name="$1"
+  if [[ -z "${!name:-}" ]]; then
+    printf '[FAIL] missing env: %s\n' "${name}" >&2
+    exit 1
+  fi
+}
+
+for var in AIRGAP_SSH_USER AIRGAP_SSH_KEY_PATH AIRGAP_MASTER_PRIVATE_IP AIRGAP_WORKER1_PRIVATE_IP; do
+  require_env "${var}"
+done
+
+if [[ "${AIRGAP_USE_BASTION}" == "true" ]]; then
+  require_env AIRGAP_BASTION_PUBLIC_IP
+  PROXY_ARGS=(-o "ProxyCommand=ssh -i ${AIRGAP_SSH_KEY_PATH} -p ${AIRGAP_SSH_PORT} -W %h:%p ${AIRGAP_SSH_USER}@${AIRGAP_BASTION_PUBLIC_IP}")
+else
+  PROXY_ARGS=()
+fi
+
+remote_cmd() {
+  local host_ip="$1"
+  shift
+  ssh -p "${AIRGAP_SSH_PORT}" -i "${AIRGAP_SSH_KEY_PATH}" "${PROXY_ARGS[@]}" \
+    "${AIRGAP_SSH_USER}@${host_ip}" "$@"
+}
+
+printf '[STEP] create worker join command on %s\n' "${AIRGAP_MASTER_HOST}"
+join_command="$(remote_cmd "${AIRGAP_MASTER_PRIVATE_IP}" "sudo kubeadm token create --print-join-command")"
+[[ -n "${join_command}" ]] || {
+  printf '[FAIL] failed to create kubeadm join command\n' >&2
+  exit 1
+}
+
+printf '[STEP] run worker join on %s\n' "${AIRGAP_WORKER1_HOST}"
+remote_cmd "${AIRGAP_WORKER1_PRIVATE_IP}" "sudo bash -lc '
+set -euo pipefail
+if [[ ! -f /etc/kubernetes/kubelet.conf ]]; then
+  ${join_command}
+else
+  echo \"worker already joined; skipping kubeadm join\"
+fi
+'"
+
+printf '[RESULT] SUCCESS\n'

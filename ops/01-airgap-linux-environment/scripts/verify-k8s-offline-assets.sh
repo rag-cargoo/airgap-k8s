@@ -7,10 +7,11 @@ ASSETS_ROOT="${PROJECT_ROOT}/assets/offline-assets"
 K8S_PACKAGES_DIR="${ASSETS_ROOT}/kubernetes/packages/kubernetes"
 RUNTIME_PACKAGES_DIR="${ASSETS_ROOT}/kubernetes/packages/container-runtime"
 K8S_IMAGES_DIR="${ASSETS_ROOT}/kubernetes/images/kube-system"
+CALICO_IMAGES_DIR="${ASSETS_ROOT}/kubernetes/images/calico"
 K8S_MANIFESTS_DIR="${ASSETS_ROOT}/kubernetes/manifests"
 CHECKSUM_FILE="${ASSETS_ROOT}/common/checksums/kubernetes-assets.sha256"
 
-TOTAL_STEPS=9
+TOTAL_STEPS=11
 CURRENT_STEP=0
 FAILURES=0
 FAILURE_MESSAGES=()
@@ -72,6 +73,7 @@ step "Required metadata files"
 check_file "${K8S_PACKAGES_DIR}/package-versions.txt" "Kubernetes package version file"
 check_file "${RUNTIME_PACKAGES_DIR}/package-versions.txt" "Container runtime package version file"
 check_file "${K8S_IMAGES_DIR}/images.txt" "Kube-system image list file"
+check_file "${CALICO_IMAGES_DIR}/images.txt" "Calico image list file"
 check_file "${CHECKSUM_FILE}" "Checksum file"
 
 step "Calico manifest files"
@@ -88,6 +90,9 @@ check_count "${RUNTIME_PACKAGES_DIR}" '*.rpm' 1 "Container runtime rpm packages"
 step "Kube-system image tar count"
 check_count "${K8S_IMAGES_DIR}" '*.tar' 1 "Kube-system image tar files"
 
+step "Calico image tar count"
+check_count "${CALICO_IMAGES_DIR}" '*.tar' 1 "Calico image tar files"
+
 print_failure_summary_and_exit
 
 step "Kubernetes rpm package list"
@@ -102,8 +107,13 @@ step "Kube-system image tar list"
 find "${K8S_IMAGES_DIR}" -maxdepth 1 -name '*.tar' | sort
 ok "Printed kube-system image tar list"
 
+step "Calico image tar list"
+find "${CALICO_IMAGES_DIR}" -maxdepth 1 -name '*.tar' | sort
+ok "Printed Calico image tar list"
+
 step "Image and checksum preview"
 sed -n '1,20p' "${K8S_IMAGES_DIR}/images.txt"
+sed -n '1,20p' "${CALICO_IMAGES_DIR}/images.txt"
 sed -n '1,10p' "${CHECKSUM_FILE}"
 ok "Printed image list and checksum preview"
 

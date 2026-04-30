@@ -14,7 +14,9 @@ OPSCOMMON_DIR := ops/common
 	ops-runtime-bundle-run ops-runtime-bundle-verify ops-runtime-bundle-clear \
 	all-verify \
 	02-01-user-network-run 02-01-user-network-verify 02-01-user-network-clear 02-01-user-network-scripts-verify \
-	03-01-preflight-run 03-01-preflight-verify 03-01-preflight-clear 03-01-preflight-script-verify
+	03-01-preflight-run 03-01-preflight-verify 03-01-preflight-clear 03-01-preflight-script-verify \
+	03-02-manual-kubeadm-run 03-02-manual-kubeadm-verify 03-02-manual-kubeadm-clear \
+	03-02-local-kubectl-start 03-02-local-kubectl-stop 03-02-local-kubectl-status 03-02-local-kubectl-prepare 03-02-local-kubectl-install 03-02-local-kubectl-setup 03-02-local-kubectl-default
 
 help:
 	@printf "Targets:\n\n"
@@ -39,7 +41,7 @@ help:
 	@printf "  ops-runtime-bundle-clear       Clear bastion runtime generated outputs\n"
 	@printf "  Detail: cd $(OPSCOMMON_DIR) && make help\n\n"
 	@printf "[Overall Readiness]\n"
-	@printf "  all-verify                     Run full pre-install readiness verification\n\n"
+	@printf "  all-verify                     Run each implemented stage verify target\n\n"
 	@printf "[02-01 User And Network]\n"
 	@printf "  02-01-user-network-run             Run actual user/network apply + verify\n"
 	@printf "  02-01-user-network-verify          Re-run actual user/network verify\n"
@@ -51,6 +53,16 @@ help:
 	@printf "  03-01-preflight-verify          Re-run remote preflight verify\n"
 	@printf "  03-01-preflight-clear           Clear 03-01 actual state marker\n"
 	@printf "  03-01-preflight-script-verify  Verify kubeadm preflight script syntax\n"
+	@printf "  03-02-manual-kubeadm-run       Run manual kubeadm installation stage\n"
+	@printf "  03-02-manual-kubeadm-verify    Verify manual kubeadm installation stage\n"
+	@printf "  03-02-manual-kubeadm-clear     Clear 03-02 actual state marker\n"
+	@printf "  03-02-local-kubectl-start      Start local PC kubectl tunnel via bastion/master SSH\n"
+	@printf "  03-02-local-kubectl-stop       Stop local PC kubectl tunnel\n"
+	@printf "  03-02-local-kubectl-status     Check local PC kubectl tunnel\n"
+	@printf "  03-02-local-kubectl-prepare    Fetch local PC kubeconfig only\n"
+	@printf "  03-02-local-kubectl-install    Install kubectl to ~/.local/bin without sudo\n"
+	@printf "  03-02-local-kubectl-setup      Merge ~/.kube/config and start tunnel for plain kubectl\n"
+	@printf "  03-02-local-kubectl-default    Alias of 03-02-local-kubectl-setup\n"
 	@printf "  Detail: cd $(OPS03_DIR) && make help\n"
 
 00-01-project-root-check:
@@ -125,3 +137,32 @@ all-verify:
 
 03-01-preflight-script-verify:
 	@$(MAKE) -C "$(OPS03_DIR)" 03-01-preflight-script-verify
+
+03-02-manual-kubeadm-run:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-02-manual-kubeadm-run
+
+03-02-manual-kubeadm-verify:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-02-manual-kubeadm-verify
+
+03-02-manual-kubeadm-clear:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-02-manual-kubeadm-clear
+
+03-02-local-kubectl-start:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-02-local-kubectl-start
+
+03-02-local-kubectl-stop:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-02-local-kubectl-stop
+
+03-02-local-kubectl-status:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-02-local-kubectl-status
+
+03-02-local-kubectl-prepare:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-02-local-kubectl-prepare
+
+03-02-local-kubectl-install:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-02-local-kubectl-install
+
+03-02-local-kubectl-setup:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-02-local-kubectl-setup
+
+03-02-local-kubectl-default: 03-02-local-kubectl-setup

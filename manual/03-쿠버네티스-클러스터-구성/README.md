@@ -1,12 +1,21 @@
 # 03. 쿠버네티스 클러스터 구성
 
 ## 문서 구성
-- `03-01`: [공통 사전점검 및 반입](./01-공통-사전점검-및-반입.md)
-- `03-02`: [수동 kubeadm 설치 단계](./02-수동-kubeadm-설치-단계.md)
-- `03-03`: [Ansible kubeadm 설치 단계](./03-Ansible-kubeadm-설치-단계.md)
-- `03-04`: [Calico 적용 기준](./04-Calico-적용.md)
+- `manual-kubeadm/`: [수동 kubeadm 설치 단계](./manual-kubeadm/README.md)
+- `manual-kubeadm/01-access-and-transfer/`: [접속 및 반입](./manual-kubeadm/01-access-and-transfer/README.md)
+- `manual-kubeadm/02-preflight/`: [kubeadm 사전점검](./manual-kubeadm/02-preflight/README.md)
+- `manual-kubeadm/03-node-baseline/`: [노드 기본값](./manual-kubeadm/03-node-baseline/README.md)
+- `manual-kubeadm/04-containerd/`: [containerd 설치](./manual-kubeadm/04-containerd/README.md)
+- `manual-kubeadm/05-kubernetes-packages/`: [Kubernetes 패키지 설치](./manual-kubeadm/05-kubernetes-packages/README.md)
+- `manual-kubeadm/06-image-import/`: [이미지 import](./manual-kubeadm/06-image-import/README.md)
+- `manual-kubeadm/07-control-plane-init/`: [control-plane 초기화](./manual-kubeadm/07-control-plane-init/README.md)
+- `manual-kubeadm/08-calico/`: [Calico 적용](./manual-kubeadm/08-calico/README.md)
+- `manual-kubeadm/09-worker-join/`: [worker join](./manual-kubeadm/09-worker-join/README.md)
+- `manual-kubeadm/10-cluster-verify/`: [클러스터 검증](./manual-kubeadm/10-cluster-verify/README.md)
+- `ansible-kubeadm/`: [Ansible kubeadm 설치 단계](./ansible-kubeadm/README.md)
+- `calico/`: [Calico 적용 기준](./calico/README.md)
 
-## 03-01.1. 환경변수 로드
+## 03-01. 환경변수 로드
 ```bash
 cd <프로젝트-루트>
 source ops/01-airgap-linux-environment/scripts/load-project-env.sh
@@ -14,14 +23,15 @@ source ops/01-airgap-linux-environment/scripts/load-project-env.sh
 
 설명: bastion, master, worker 접속에 필요한 환경변수를 현재 셸에 로드한다.
 
+## 03-02. target 확인
 ```bash
 cd ops/03-kubernetes-cluster
 make help
 ```
 
-설명: `03-01` 공통 사전점검과 검증 타깃은 `ops/03-kubernetes-cluster/Makefile`, 수동/Ansible 구분 자산은 `common/`, `manual-kubeadm/`, `ansible-kubeadm/`, `calico/` 구조로 확인한다. 수동과 Ansible은 `01`~`06` 같은 단계 번호를 공유한다.
+설명: 수동 설치는 `manual-kubeadm/01..10` 단원과 1:1로 대응되는 `step-03-02-*` target을 사용한다. `03-01-preflight-*` target은 하위 호환용 alias이며 실제 preflight 스크립트는 `manual-kubeadm/02-preflight/`에 있다.
 
-## 03-01.2. bastion 실행 원본 번들 생성
+## 03-03. bastion 실행 원본 번들 생성
 ```bash
 cd <프로젝트-루트>
 make ops-runtime-bundle-run
@@ -30,32 +40,67 @@ make ops-runtime-bundle-verify
 
 설명: bastion에서 `kubectl`, `helm`, `ansible-playbook`를 실행할 수 있도록 작성 원본 번들 `delivery/ops-runtime.tar.gz`를 준비한다.
 
-## 03-01.3. 실제 원격 preflight 실행
+## 03-04. 수동 kubeadm 전체 실행
 ```bash
-make 03-01-preflight-run
+cd <프로젝트-루트>/ops/03-kubernetes-cluster
+make 03-02-manual-kubeadm-run
+make 03-02-manual-kubeadm-verify
 ```
 
-설명: master/worker에 preflight 스크립트를 업로드하고 원격에서 즉시 실행한다. 성공 시 `03-01-remote-preflight.done` 상태 마커를 기록한다.
+설명: 전체 실행 target은 `manual-kubeadm/01-access-and-transfer`부터 `10-cluster-verify`까지 순서대로 실행/검증한다.
 
-## 03-01.4. 원격 preflight 재검증
+## 03-05. 단계별 실행
 ```bash
+make step-03-02-01-access-and-transfer-run
+make step-03-02-01-access-and-transfer-verify
+make step-03-02-02-preflight-run
+make step-03-02-02-preflight-verify
+make step-03-02-03-node-baseline-run
+make step-03-02-03-node-baseline-verify
+make step-03-02-04-containerd-run
+make step-03-02-04-containerd-verify
+make step-03-02-05-kubernetes-packages-run
+make step-03-02-05-kubernetes-packages-verify
+make step-03-02-06-image-import-run
+make step-03-02-06-image-import-verify
+make step-03-02-07-control-plane-init-run
+make step-03-02-07-control-plane-init-verify
+make step-03-02-08-calico-run
+make step-03-02-08-calico-verify
+make step-03-02-09-worker-join-run
+make step-03-02-09-worker-join-verify
+make step-03-02-10-cluster-verify
+```
+
+설명: 각 단원 디렉터리의 `scripts/` 아래에 번호가 붙은 실행/검증 스크립트가 있다. 상위 `manual-kubeadm/scripts/` 공용 설치 본체는 사용하지 않는다.
+
+## 03-06. 작성 스크립트 확인
+```bash
+find ops/03-kubernetes-cluster/manual-kubeadm -path '*/scripts/*.sh' | sort
+make 03-02-manual-kubeadm-script-verify
+```
+
+설명: 파일명은 `01-01`, `01-02`, `02-01`, `02-02`처럼 `단원-세부순서-역할` 접두어를 사용한다. 문법 검증은 `03-02-manual-kubeadm-script-verify`로 수행한다.
+
+## 03-07. preflight 호환 target
+```bash
+make 03-01-preflight-run
 make 03-01-preflight-verify
 ```
 
-설명: 이미 업로드된 preflight 스크립트를 master/worker에서 다시 실행해 현재 상태를 재검증한다.
+설명: 기존 문서와 상위 `all-verify` 호환을 위해 남긴 이름이다. 내부적으로는 `step-03-02-02-preflight-run/verify`를 호출한다.
 
-## 03-01.5. 상태 초기화
+## 03-08. 상태 초기화
 ```bash
 make 03-01-preflight-clear
+make 03-02-manual-kubeadm-clear
 ```
 
-설명: `03-01` 실제 preflight 상태 마커만 제거한다. 노드 설정 자체를 되돌리지는 않는다.
+설명: 상태 마커만 제거한다. 노드 설정, 패키지, Kubernetes 클러스터 자체를 되돌리지는 않는다.
 
-## 03-01.6. 사전점검 결과 확인
-```text
-[OK]   통과
-[WARN] 수동 확인 필요
-[FAIL] 설치 전 수정 필요
+## 03-09. 장애 진단
+```bash
+make 03-02-manual-kubeadm-troubleshoot
 ```
 
-설명: `03-01-preflight-run` 또는 `03-01-preflight-verify` 마지막 결과가 `[RESULT] SUCCESS`여야 다음 단계로 진행한다. `FAIL` 항목이 하나라도 있으면 containerd, kubeadm 설치 전에 먼저 수정한다.
+설명: 전송, 패키지, 이미지 import, Calico, 노드 Ready 상태가 불명확하면 이 target으로 현재 상태를 먼저 확인한다.

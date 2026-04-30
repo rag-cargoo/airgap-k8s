@@ -7,6 +7,7 @@ ASSETS_ROOT="${PROJECT_ROOT}/assets/offline-assets"
 K8S_PACKAGES_DIR="${ASSETS_ROOT}/kubernetes/packages/kubernetes"
 RUNTIME_PACKAGES_DIR="${ASSETS_ROOT}/kubernetes/packages/container-runtime"
 K8S_IMAGES_DIR="${ASSETS_ROOT}/kubernetes/images/kube-system"
+CALICO_IMAGES_DIR="${ASSETS_ROOT}/kubernetes/images/calico"
 K8S_MANIFESTS_DIR="${ASSETS_ROOT}/kubernetes/manifests"
 CHECKSUMS_DIR="${ASSETS_ROOT}/common/checksums"
 
@@ -16,9 +17,10 @@ K8S_RPM_VERSION="1.35.4-150500.1.1"
 CRI_TOOLS_RPM_VERSION="1.35.0-150500.1.1"
 K8S_CNI_RPM_VERSION="1.8.0-150500.1.1"
 CALICO_VERSION="v3.31.4"
+CALICO_OPERATOR_VERSION="v1.40.7"
 AL2023_IMAGE="amazonlinux:2023"
 DOWNLOAD_START_TS="$(date +%s)"
-DOWNLOAD_TOTAL_STEPS=6
+DOWNLOAD_TOTAL_STEPS=7
 DOWNLOAD_CURRENT_STEP=0
 
 format_duration() {
@@ -61,6 +63,7 @@ mkdir -p \
   "${K8S_PACKAGES_DIR}" \
   "${RUNTIME_PACKAGES_DIR}" \
   "${K8S_IMAGES_DIR}" \
+  "${CALICO_IMAGES_DIR}" \
   "${K8S_MANIFESTS_DIR}" \
   "${CHECKSUMS_DIR}"
 
@@ -108,6 +111,38 @@ EOF
       dnf install -y kubeadm --setopt=disable_excludes=kubernetes >/dev/null 2>&1
       kubeadm config images list --kubernetes-version v${K8S_PATCH_VERSION}
     "
+}
+
+write_calico_image_list() {
+  cat > "${CALICO_IMAGES_DIR}/images.txt" <<EOF
+quay.io/tigera/operator:${CALICO_OPERATOR_VERSION}
+quay.io/calico/cni:${CALICO_VERSION}
+quay.io/calico/key-cert-provisioner:${CALICO_VERSION}
+quay.io/calico/kube-controllers:${CALICO_VERSION}
+quay.io/calico/node:${CALICO_VERSION}
+quay.io/calico/typha:${CALICO_VERSION}
+quay.io/calico/pod2daemon-flexvol:${CALICO_VERSION}
+quay.io/calico/apiserver:${CALICO_VERSION}
+quay.io/calico/csi:${CALICO_VERSION}
+quay.io/calico/node-driver-registrar:${CALICO_VERSION}
+quay.io/calico/goldmane:${CALICO_VERSION}
+quay.io/calico/whisker:${CALICO_VERSION}
+quay.io/calico/whisker-backend:${CALICO_VERSION}
+EOF
+}
+
+save_images_from_list() {
+  local image_list_file="$1"
+  local output_dir="$2"
+  while IFS= read -r image; do
+    [[ -z "${image}" ]] && continue
+    local image_file
+    image_file="$(echo "${image}" | sed 's|/|_|g; s|:|_|g').tar"
+    echo "[INFO] pulling image: ${image}"
+    docker pull "${image}" >/dev/null
+    docker save -o "${output_dir}/${image_file}" "${image}"
+    echo "[OK] saved image: ${image_file}"
+  done < "${image_list_file}"
 }
 
 echo "[INFO] target Kubernetes version: ${K8S_PATCH_VERSION}"
@@ -166,15 +201,15 @@ sed 's/^/[INFO]   /' "${K8S_IMAGES_DIR}/images.txt"
 step_ok "generated kubeadm image list"
 
 step_start "pull and save kube-system images"
-while IFS= read -r image; do
-  [[ -z "${image}" ]] && continue
-  image_file="$(echo "${image}" | sed 's|/|_|g; s|:|_|g').tar"
-  echo "[INFO] pulling image: ${image}"
-  docker pull "${image}" >/dev/null
-  docker save -o "${K8S_IMAGES_DIR}/${image_file}" "${image}"
-  echo "[OK] saved image: ${image_file}"
-done < "${K8S_IMAGES_DIR}/images.txt"
+save_images_from_list "${K8S_IMAGES_DIR}/images.txt" "${K8S_IMAGES_DIR}"
 step_ok "pulled and saved kube-system images"
+
+step_start "generate and save Calico images"
+write_calico_image_list
+echo "[INFO] image list:"
+sed 's/^/[INFO]   /' "${CALICO_IMAGES_DIR}/images.txt"
+save_images_from_list "${CALICO_IMAGES_DIR}/images.txt" "${CALICO_IMAGES_DIR}"
+step_ok "generated and saved Calico images"
 
 echo
 echo "[CHECK] generate checksums"
@@ -188,6 +223,7 @@ DOWNLOAD_TOTAL_ELAPSED=$((DOWNLOAD_END_TS - DOWNLOAD_START_TS))
 K8S_RPM_COUNT="$(find "${K8S_PACKAGES_DIR}" -maxdepth 1 -name '*.rpm' | wc -l | tr -d ' ')"
 RUNTIME_RPM_COUNT="$(find "${RUNTIME_PACKAGES_DIR}" -maxdepth 1 -name '*.rpm' | wc -l | tr -d ' ')"
 IMAGE_TAR_COUNT="$(find "${K8S_IMAGES_DIR}" -maxdepth 1 -name '*.tar' | wc -l | tr -d ' ')"
+CALICO_IMAGE_TAR_COUNT="$(find "${CALICO_IMAGES_DIR}" -maxdepth 1 -name '*.tar' | wc -l | tr -d ' ')"
 MANIFEST_COUNT="$(find "${K8S_MANIFESTS_DIR}" -maxdepth 1 -name '*.yaml' | wc -l | tr -d ' ')"
 echo "[OK] generated checksums"
 echo
@@ -198,4 +234,5 @@ echo "[INFO] summary:"
 echo "[INFO]   Kubernetes rpm files: ${K8S_RPM_COUNT}"
 echo "[INFO]   Runtime rpm files: ${RUNTIME_RPM_COUNT}"
 echo "[INFO]   Kube-system image tar files: ${IMAGE_TAR_COUNT}"
+echo "[INFO]   Calico image tar files: ${CALICO_IMAGE_TAR_COUNT}"
 echo "[INFO]   Manifest yaml files: ${MANIFEST_COUNT}"

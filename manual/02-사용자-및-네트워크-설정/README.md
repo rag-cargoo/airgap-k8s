@@ -34,7 +34,7 @@ make 02-01-user-network-run
 make 02-01-user-network-verify
 ```
 
-설명: 이미 적용된 master/worker 상태를 다시 읽어 `devops`, sudo 그룹, hostname, `/etc/hosts` 결과를 재검증한다. `all-verify`는 이 결과 마커를 사용해 실제 적용 여부를 표시한다.
+설명: 이미 적용된 master/worker 상태를 다시 읽어 `devops`, sudo 그룹, hostname, `/etc/hosts` 결과를 재검증한다. `all-verify`도 이 verify target을 실제로 다시 실행한다.
 
 ## 02-01.5. 상태 초기화
 ```bash

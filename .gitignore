@@ -10,6 +10,7 @@
 *.tfplan
 .env
 .env.local
+.kube/
 manual/00-제출-매뉴얼-개요/03-사전-조사-정보-수집-템플릿.yaml
 ops/01-airgap-linux-environment/aws-terraform-simulation/.terraform/
 ops/01-airgap-linux-environment/aws-terraform-simulation/terraform.tfvars
