@@ -14,8 +14,8 @@
 - `02` 장 이후 실제 설치 절차는 VM 기준으로 진행한다.
 
 ## 0.3. 버전 기준
-- Kubernetes 버전은 `v1.35.3`으로 고정한다.
-- `kubeadm`, `kubelet`, `kubectl`은 모두 `v1.35.3` 기준으로 맞춘다.
+- Kubernetes 버전은 `v1.35.4`로 고정한다.
+- `kubeadm`, `kubelet`, `kubectl`은 모두 `v1.35.4` 기준으로 맞춘다.
 - container runtime은 `containerd`를 기본 기준으로 한다.
 - CNI는 `Calico`로 고정한다.
 - 서비스 이미지 버전은 오프라인 반입 가능성과 호환성을 확인한 뒤 각 서비스 장에서 확정한다.

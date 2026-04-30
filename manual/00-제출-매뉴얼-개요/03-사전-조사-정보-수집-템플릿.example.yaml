@@ -20,7 +20,7 @@ nodes:
   worker1_private_ip: "10.10.20.154"
 
 cluster:
-  kubernetes_version: "v1.35.3"
+  kubernetes_version: "v1.35.4"
   container_runtime: "containerd"
   cni: "calico"
   pod_cidr: ""

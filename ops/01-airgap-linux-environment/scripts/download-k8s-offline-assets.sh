@@ -11,8 +11,10 @@ K8S_MANIFESTS_DIR="${ASSETS_ROOT}/kubernetes/manifests"
 CHECKSUMS_DIR="${ASSETS_ROOT}/common/checksums"
 
 K8S_MINOR_VERSION="v1.35"
-K8S_PATCH_VERSION="1.35.3"
-K8S_RPM_VERSION="1.35.3-150500.1.1"
+K8S_PATCH_VERSION="1.35.4"
+K8S_RPM_VERSION="1.35.4-150500.1.1"
+CRI_TOOLS_RPM_VERSION="1.35.0-150500.1.1"
+K8S_CNI_RPM_VERSION="1.8.0-150500.1.1"
 CALICO_VERSION="v3.31.4"
 AL2023_IMAGE="amazonlinux:2023"
 DOWNLOAD_START_TS="$(date +%s)"
@@ -72,7 +74,7 @@ download_rpms() {
     "${AL2023_IMAGE}" \
     bash -lc "
       set -euo pipefail
-      dnf install -y dnf-plugins-core curl >/dev/null 2>&1
+      dnf install -y dnf-plugins-core >/dev/null 2>&1
       cat >/etc/yum.repos.d/kubernetes.repo <<EOF
 [kubernetes]
 name=Kubernetes
@@ -83,7 +85,7 @@ gpgkey=https://pkgs.k8s.io/core:/stable:/${K8S_MINOR_VERSION}/rpm/repodata/repom
 exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
 EOF
       mkdir -p /tmp/out
-      dnf download --resolve --alldeps --destdir /tmp/out ${packages[*]} --setopt=disable_excludes=kubernetes >/dev/null 2>&1
+      dnf download --arch=x86_64,noarch --resolve --alldeps --destdir /tmp/out ${packages[*]} --setopt=disable_excludes=kubernetes >/dev/null 2>&1
       cp -av /tmp/out/*.rpm /out/ >/dev/null
     "
 }
@@ -93,7 +95,7 @@ list_kubeadm_images() {
     "${AL2023_IMAGE}" \
     bash -lc "
       set -euo pipefail
-      dnf install -y dnf-plugins-core curl >/dev/null 2>&1
+      dnf install -y dnf-plugins-core >/dev/null 2>&1
       cat >/etc/yum.repos.d/kubernetes.repo <<EOF
 [kubernetes]
 name=Kubernetes
@@ -111,24 +113,25 @@ EOF
 echo "[INFO] target Kubernetes version: ${K8S_PATCH_VERSION}"
 echo "[INFO] target Calico version: ${CALICO_VERSION}"
 echo "[INFO] target asset format: rpm/dnf for Amazon Linux 2023"
+echo "[INFO] target architecture: x86_64"
 
 step_start "download Kubernetes rpm packages"
 echo "[INFO] packages: kubelet kubeadm kubectl cri-tools kubernetes-cni"
 download_rpms \
   "${K8S_PACKAGES_DIR}" \
-  "kubelet" \
-  "kubeadm" \
-  "kubectl" \
-  "cri-tools" \
-  "kubernetes-cni"
+  "kubelet.x86_64" \
+  "kubeadm.x86_64" \
+  "kubectl.x86_64" \
+  "cri-tools.x86_64" \
+  "kubernetes-cni.x86_64"
 step_ok "downloaded Kubernetes rpm packages"
 
 step_start "download container runtime rpm packages"
 echo "[INFO] packages: containerd, runc"
 download_rpms \
   "${RUNTIME_PACKAGES_DIR}" \
-  "containerd" \
-  "runc"
+  "containerd.x86_64" \
+  "runc.x86_64"
 step_ok "downloaded container runtime rpm packages"
 
 step_start "save package version references"
@@ -136,8 +139,8 @@ cat > "${K8S_PACKAGES_DIR}/package-versions.txt" <<EOF
 kubelet=${K8S_RPM_VERSION}
 kubeadm=${K8S_RPM_VERSION}
 kubectl=${K8S_RPM_VERSION}
-cri-tools=pkgs.k8s.io-rpm-latest-for-${K8S_MINOR_VERSION}
-kubernetes-cni=pkgs.k8s.io-rpm-latest-for-${K8S_MINOR_VERSION}
+cri-tools=${CRI_TOOLS_RPM_VERSION}
+kubernetes-cni=${K8S_CNI_RPM_VERSION}
 EOF
 
 cat > "${RUNTIME_PACKAGES_DIR}/package-versions.txt" <<EOF
