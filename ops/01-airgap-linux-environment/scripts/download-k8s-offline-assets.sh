@@ -12,9 +12,9 @@ CHECKSUMS_DIR="${ASSETS_ROOT}/common/checksums"
 
 K8S_MINOR_VERSION="v1.35"
 K8S_PATCH_VERSION="1.35.3"
-K8S_APT_VERSION="1.35.3-1.1"
+K8S_RPM_VERSION="1.35.3-150500.1.1"
 CALICO_VERSION="v3.31.4"
-UBUNTU_IMAGE="ubuntu:22.04"
+AL2023_IMAGE="amazonlinux:2023"
 DOWNLOAD_START_TS="$(date +%s)"
 DOWNLOAD_TOTAL_STEPS=6
 DOWNLOAD_CURRENT_STEP=0
@@ -62,85 +62,87 @@ mkdir -p \
   "${K8S_MANIFESTS_DIR}" \
   "${CHECKSUMS_DIR}"
 
-download_debs() {
+download_rpms() {
   local output_dir="$1"
   shift
   local packages=("$@")
 
   docker run --rm \
     -v "${output_dir}:/out" \
-    "${UBUNTU_IMAGE}" \
+    "${AL2023_IMAGE}" \
     bash -lc "
       set -euo pipefail
-      export DEBIAN_FRONTEND=noninteractive
-      apt-get update >/dev/null 2>&1
-      apt-get install -y apt-transport-https ca-certificates curl gpg >/dev/null 2>&1
-      mkdir -p /etc/apt/keyrings
-      curl -fsSL https://pkgs.k8s.io/core:/stable:/${K8S_MINOR_VERSION}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-      echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${K8S_MINOR_VERSION}/deb/ /' > /etc/apt/sources.list.d/kubernetes.list
-      apt-get update >/dev/null 2>&1
-      apt-get install --download-only -y ${packages[*]} >/dev/null 2>&1
-      cp -av /var/cache/apt/archives/*.deb /out/ >/dev/null
+      dnf install -y dnf-plugins-core curl >/dev/null 2>&1
+      cat >/etc/yum.repos.d/kubernetes.repo <<EOF
+[kubernetes]
+name=Kubernetes
+baseurl=https://pkgs.k8s.io/core:/stable:/${K8S_MINOR_VERSION}/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.k8s.io/core:/stable:/${K8S_MINOR_VERSION}/rpm/repodata/repomd.xml.key
+exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
+EOF
+      mkdir -p /tmp/out
+      dnf download --resolve --alldeps --destdir /tmp/out ${packages[*]} --setopt=disable_excludes=kubernetes >/dev/null 2>&1
+      cp -av /tmp/out/*.rpm /out/ >/dev/null
     "
 }
 
 list_kubeadm_images() {
   docker run --rm \
-    "${UBUNTU_IMAGE}" \
+    "${AL2023_IMAGE}" \
     bash -lc "
       set -euo pipefail
-      export DEBIAN_FRONTEND=noninteractive
-      apt-get update >/dev/null 2>&1
-      apt-get install -y apt-transport-https ca-certificates curl gpg >/dev/null 2>&1
-      mkdir -p /etc/apt/keyrings
-      curl -fsSL https://pkgs.k8s.io/core:/stable:/${K8S_MINOR_VERSION}/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-      echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${K8S_MINOR_VERSION}/deb/ /' > /etc/apt/sources.list.d/kubernetes.list
-      apt-get update >/dev/null 2>&1
-      apt-get install -y kubeadm=${K8S_APT_VERSION} >/dev/null 2>&1
+      dnf install -y dnf-plugins-core curl >/dev/null 2>&1
+      cat >/etc/yum.repos.d/kubernetes.repo <<EOF
+[kubernetes]
+name=Kubernetes
+baseurl=https://pkgs.k8s.io/core:/stable:/${K8S_MINOR_VERSION}/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.k8s.io/core:/stable:/${K8S_MINOR_VERSION}/rpm/repodata/repomd.xml.key
+exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
+EOF
+      dnf install -y kubeadm --setopt=disable_excludes=kubernetes >/dev/null 2>&1
       kubeadm config images list --kubernetes-version v${K8S_PATCH_VERSION}
     "
 }
 
 echo "[INFO] target Kubernetes version: ${K8S_PATCH_VERSION}"
 echo "[INFO] target Calico version: ${CALICO_VERSION}"
+echo "[INFO] target asset format: rpm/dnf for Amazon Linux 2023"
 
-step_start "download Kubernetes deb packages"
-echo "[INFO] packages: kubelet=${K8S_APT_VERSION}, kubeadm=${K8S_APT_VERSION}, kubectl=${K8S_APT_VERSION}, cri-tools, kubernetes-cni"
-download_debs \
+step_start "download Kubernetes rpm packages"
+echo "[INFO] packages: kubelet kubeadm kubectl cri-tools kubernetes-cni"
+download_rpms \
   "${K8S_PACKAGES_DIR}" \
-  "kubelet=${K8S_APT_VERSION}" \
-  "kubeadm=${K8S_APT_VERSION}" \
-  "kubectl=${K8S_APT_VERSION}" \
+  "kubelet" \
+  "kubeadm" \
+  "kubectl" \
   "cri-tools" \
   "kubernetes-cni"
-step_ok "downloaded Kubernetes deb packages"
+step_ok "downloaded Kubernetes rpm packages"
 
-step_start "download container runtime deb packages"
+step_start "download container runtime rpm packages"
 echo "[INFO] packages: containerd, runc"
-docker run --rm \
-  -v "${RUNTIME_PACKAGES_DIR}:/out" \
-  "${UBUNTU_IMAGE}" \
-  bash -lc "
-    set -euo pipefail
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update >/dev/null 2>&1
-    apt-get install --download-only -y containerd runc >/dev/null 2>&1
-    cp -av /var/cache/apt/archives/*.deb /out/ >/dev/null
-  "
-step_ok "downloaded container runtime deb packages"
+download_rpms \
+  "${RUNTIME_PACKAGES_DIR}" \
+  "containerd" \
+  "runc"
+step_ok "downloaded container runtime rpm packages"
 
 step_start "save package version references"
 cat > "${K8S_PACKAGES_DIR}/package-versions.txt" <<EOF
-kubelet=${K8S_APT_VERSION}
-kubeadm=${K8S_APT_VERSION}
-kubectl=${K8S_APT_VERSION}
-cri-tools=repo-latest-for-${K8S_MINOR_VERSION}
-kubernetes-cni=repo-latest-for-${K8S_MINOR_VERSION}
+kubelet=${K8S_RPM_VERSION}
+kubeadm=${K8S_RPM_VERSION}
+kubectl=${K8S_RPM_VERSION}
+cri-tools=pkgs.k8s.io-rpm-latest-for-${K8S_MINOR_VERSION}
+kubernetes-cni=pkgs.k8s.io-rpm-latest-for-${K8S_MINOR_VERSION}
 EOF
 
 cat > "${RUNTIME_PACKAGES_DIR}/package-versions.txt" <<EOF
-containerd=ubuntu-jammy-repo-latest
-runc=ubuntu-jammy-repo-latest
+containerd=amazonlinux2023-dnf-latest
+runc=amazonlinux2023-dnf-latest
 EOF
 step_ok "saved package version references"
 
@@ -180,8 +182,8 @@ echo "[CHECK] generate checksums"
 
 DOWNLOAD_END_TS="$(date +%s)"
 DOWNLOAD_TOTAL_ELAPSED=$((DOWNLOAD_END_TS - DOWNLOAD_START_TS))
-K8S_DEB_COUNT="$(find "${K8S_PACKAGES_DIR}" -maxdepth 1 -name '*.deb' | wc -l | tr -d ' ')"
-RUNTIME_DEB_COUNT="$(find "${RUNTIME_PACKAGES_DIR}" -maxdepth 1 -name '*.deb' | wc -l | tr -d ' ')"
+K8S_RPM_COUNT="$(find "${K8S_PACKAGES_DIR}" -maxdepth 1 -name '*.rpm' | wc -l | tr -d ' ')"
+RUNTIME_RPM_COUNT="$(find "${RUNTIME_PACKAGES_DIR}" -maxdepth 1 -name '*.rpm' | wc -l | tr -d ' ')"
 IMAGE_TAR_COUNT="$(find "${K8S_IMAGES_DIR}" -maxdepth 1 -name '*.tar' | wc -l | tr -d ' ')"
 MANIFEST_COUNT="$(find "${K8S_MANIFESTS_DIR}" -maxdepth 1 -name '*.yaml' | wc -l | tr -d ' ')"
 echo "[OK] generated checksums"
@@ -190,7 +192,7 @@ echo "[RESULT] SUCCESS"
 echo "[INFO] completed steps: ${DOWNLOAD_CURRENT_STEP}/${DOWNLOAD_TOTAL_STEPS}"
 echo "[INFO] total elapsed: $(format_duration "${DOWNLOAD_TOTAL_ELAPSED}")"
 echo "[INFO] summary:"
-echo "[INFO]   Kubernetes deb files: ${K8S_DEB_COUNT}"
-echo "[INFO]   Runtime deb files: ${RUNTIME_DEB_COUNT}"
+echo "[INFO]   Kubernetes rpm files: ${K8S_RPM_COUNT}"
+echo "[INFO]   Runtime rpm files: ${RUNTIME_RPM_COUNT}"
 echo "[INFO]   Kube-system image tar files: ${IMAGE_TAR_COUNT}"
 echo "[INFO]   Manifest yaml files: ${MANIFEST_COUNT}"

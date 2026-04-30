@@ -3,6 +3,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+OPS01_DIR="${PROJECT_ROOT}/ops/01-airgap-linux-environment"
 cd "${PROJECT_ROOT}"
 
 START_TS="$(date +%s)"
@@ -77,16 +78,16 @@ print_failure_summary() {
   done
 }
 
-run_step "작업 원본 자산 경로 확인" make step-01-03-01-assets-tree-check || { print_failure_summary; exit 1; }
-run_step "쿠버네티스 설치용 자산 다운로드" make step-01-03-02-k8s-assets-download || { print_failure_summary; exit 1; }
-run_step "쿠버네티스 설치용 자산 검증" make step-01-03-03-k8s-assets-verify || { print_failure_summary; exit 1; }
-run_step "서버 반입용 번들 생성" make step-01-03-04-bundle-create || { print_failure_summary; exit 1; }
-run_step "서버 반입용 번들 검증" make step-01-03-05-bundle-verify || { print_failure_summary; exit 1; }
+run_step "작업 원본 자산 경로 확인" make -C "${OPS01_DIR}" step-01-03-01-assets-tree-check || { print_failure_summary; exit 1; }
+run_step "쿠버네티스 설치용 자산 다운로드" make -C "${OPS01_DIR}" step-01-03-02-k8s-assets-download || { print_failure_summary; exit 1; }
+run_step "쿠버네티스 설치용 자산 검증" make -C "${OPS01_DIR}" step-01-03-03-k8s-assets-verify || { print_failure_summary; exit 1; }
+run_step "서버 반입용 번들 생성" make -C "${OPS01_DIR}" step-01-03-04-bundle-create || { print_failure_summary; exit 1; }
+run_step "서버 반입용 번들 검증" make -C "${OPS01_DIR}" step-01-03-05-bundle-verify || { print_failure_summary; exit 1; }
 
 END_TS="$(date +%s)"
 TOTAL_ELAPSED=$((END_TS - START_TS))
-K8S_DEB_COUNT="$(find assets/offline-assets/kubernetes/packages/kubernetes -maxdepth 1 -name '*.deb' | wc -l | tr -d ' ')"
-RUNTIME_DEB_COUNT="$(find assets/offline-assets/kubernetes/packages/container-runtime -maxdepth 1 -name '*.deb' | wc -l | tr -d ' ')"
+K8S_RPM_COUNT="$(find assets/offline-assets/kubernetes/packages/kubernetes -maxdepth 1 -name '*.rpm' | wc -l | tr -d ' ')"
+RUNTIME_RPM_COUNT="$(find assets/offline-assets/kubernetes/packages/container-runtime -maxdepth 1 -name '*.rpm' | wc -l | tr -d ' ')"
 IMAGE_TAR_COUNT="$(find assets/offline-assets/kubernetes/images/kube-system -maxdepth 1 -name '*.tar' | wc -l | tr -d ' ')"
 MANIFEST_COUNT="$(find assets/offline-assets/kubernetes/manifests -maxdepth 1 -name '*.yaml' | wc -l | tr -d ' ')"
 BUNDLE_SIZE="$(du -sh delivery/offline-assets.tar.gz | awk '{print $1}')"
@@ -96,8 +97,8 @@ echo "[RESULT] SUCCESS"
 echo "[INFO] completed steps: ${CURRENT_STEP}/${TOTAL_STEPS}"
 echo "[INFO] total elapsed: $(format_duration "${TOTAL_ELAPSED}")"
 echo "[INFO] summary:"
-echo "[INFO]   Kubernetes deb files: ${K8S_DEB_COUNT}"
-echo "[INFO]   Runtime deb files: ${RUNTIME_DEB_COUNT}"
+echo "[INFO]   Kubernetes rpm files: ${K8S_RPM_COUNT}"
+echo "[INFO]   Runtime rpm files: ${RUNTIME_RPM_COUNT}"
 echo "[INFO]   Kube-system image tar files: ${IMAGE_TAR_COUNT}"
 echo "[INFO]   Manifest yaml files: ${MANIFEST_COUNT}"
 echo "[INFO]   Bundle archive size: ${BUNDLE_SIZE}"

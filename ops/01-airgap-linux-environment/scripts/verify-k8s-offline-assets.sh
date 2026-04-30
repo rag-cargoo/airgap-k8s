@@ -79,24 +79,24 @@ check_file "${K8S_MANIFESTS_DIR}/operator-crds.yaml" "Calico operator CRDs manif
 check_file "${K8S_MANIFESTS_DIR}/tigera-operator.yaml" "Calico tigera-operator manifest"
 check_file "${K8S_MANIFESTS_DIR}/custom-resources.yaml" "Calico custom-resources manifest"
 
-step "Kubernetes deb package count"
-check_count "${K8S_PACKAGES_DIR}" '*.deb' 1 "Kubernetes deb packages"
+step "Kubernetes rpm package count"
+check_count "${K8S_PACKAGES_DIR}" '*.rpm' 1 "Kubernetes rpm packages"
 
-step "Container runtime deb package count"
-check_count "${RUNTIME_PACKAGES_DIR}" '*.deb' 1 "Container runtime deb packages"
+step "Container runtime rpm package count"
+check_count "${RUNTIME_PACKAGES_DIR}" '*.rpm' 1 "Container runtime rpm packages"
 
 step "Kube-system image tar count"
 check_count "${K8S_IMAGES_DIR}" '*.tar' 1 "Kube-system image tar files"
 
 print_failure_summary_and_exit
 
-step "Kubernetes deb package list"
-find "${K8S_PACKAGES_DIR}" -maxdepth 1 -name '*.deb' | sort
-ok "Printed Kubernetes deb package list"
+step "Kubernetes rpm package list"
+find "${K8S_PACKAGES_DIR}" -maxdepth 1 -name '*.rpm' | sort
+ok "Printed Kubernetes rpm package list"
 
-step "Container runtime deb package list"
-find "${RUNTIME_PACKAGES_DIR}" -maxdepth 1 -name '*.deb' | sort
-ok "Printed container runtime deb package list"
+step "Container runtime rpm package list"
+find "${RUNTIME_PACKAGES_DIR}" -maxdepth 1 -name '*.rpm' | sort
+ok "Printed container runtime rpm package list"
 
 step "Kube-system image tar list"
 find "${K8S_IMAGES_DIR}" -maxdepth 1 -name '*.tar' | sort

@@ -3,6 +3,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+OPS01_DIR="${PROJECT_ROOT}/ops/01-airgap-linux-environment"
 cd "${PROJECT_ROOT}"
 
 START_TS="$(date +%s)"
@@ -77,8 +78,8 @@ print_failure_summary() {
   done
 }
 
-run_step "서버 반입용 번들 삭제" make step-01-03-04-bundle-clear || { print_failure_summary; exit 1; }
-run_step "쿠버네티스 오프라인 자산 삭제" make step-01-03-02-k8s-assets-clear || { print_failure_summary; exit 1; }
+run_step "서버 반입용 번들 삭제" make -C "${OPS01_DIR}" step-01-03-04-bundle-clear || { print_failure_summary; exit 1; }
+run_step "쿠버네티스 오프라인 자산 삭제" make -C "${OPS01_DIR}" step-01-03-02-k8s-assets-clear || { print_failure_summary; exit 1; }
 
 END_TS="$(date +%s)"
 TOTAL_ELAPSED=$((END_TS - START_TS))
