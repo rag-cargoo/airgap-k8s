@@ -2,6 +2,8 @@
 
 아직 최종 제출 파일을 생성하지 않은 장이다.
 
+전달 번들은 `delivery/offline-assets.tar.gz`와 `delivery/ops-runtime.tar.gz`를 구분해서 관리한다.
+
 세부 실행 초안은 `prj-docs/projects/airgap-k8s/tasks/06-제출.md`에서 관리한다.
 
 최종 제출 파일 생성 후 `06-01.1`, `06-01.2` 형식으로 변환 명령, 압축 명령, 결과 파일 목록만 이 문서에 반영한다.

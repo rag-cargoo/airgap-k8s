@@ -90,7 +90,7 @@ check_hostname_value() {
 check_hosts_entry() {
   local ip="$1"
   local name="$2"
-  if getent hosts "${name}" | awk '{print $1}' | grep -qx "${ip}"; then
+  if grep -Eq "^[[:space:]]*${ip}[[:space:]]+${name}([[:space:]]|\$)" /etc/hosts; then
     pass "hosts entry matched: ${ip} ${name}"
   else
     fail "hosts entry mismatch: ${ip} ${name}"

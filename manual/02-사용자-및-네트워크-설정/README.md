@@ -13,98 +13,41 @@ cd ops/02-user-network
 make help
 ```
 
-설명: `02-01` 세부 스크립트와 검증 타깃은 `ops/02-user-network/Makefile` 기준으로 확인한다.
+설명: `02-01` 세부 실행/검증/초기화 타깃은 `ops/02-user-network/Makefile` 기준으로 확인한다.
 
-## 02-01.2. 사용자 및 네트워크 설정 스크립트 업로드
+## 02-01.2. 로컬 스크립트 준비 검증
 ```bash
-scp -i "${AIRGAP_SSH_KEY_PATH}" \
-  ops/02-user-network/scripts/configure-node-user-network.sh \
-  "${AIRGAP_SSH_USER}@${AIRGAP_BASTION_PUBLIC_IP}:/tmp/configure-node-user-network.sh"
-
-scp -i "${AIRGAP_SSH_KEY_PATH}" \
-  ops/02-user-network/scripts/verify-node-user-network.sh \
-  "${AIRGAP_SSH_USER}@${AIRGAP_BASTION_PUBLIC_IP}:/tmp/verify-node-user-network.sh"
+make 02-01-user-network-scripts-verify
 ```
 
-설명: bastion 또는 관리용 경유지에 사용자/hostname/hosts 설정 스크립트를 업로드한다.
+설명: 실제 노드 적용 전에 사용자/네트워크 설정 스크립트의 문법과 실행 스크립트 구성을 검증한다.
 
-## 02-01.3. master 노드에 스크립트 전달
+## 02-01.3. 실제 적용 실행
 ```bash
-scp -i "${AIRGAP_SSH_KEY_PATH}" \
-  -o ProxyCommand="ssh -i ${AIRGAP_SSH_KEY_PATH} -W %h:%p ${AIRGAP_SSH_USER}@${AIRGAP_BASTION_PUBLIC_IP}" \
-  ops/02-user-network/scripts/configure-node-user-network.sh \
-  ops/02-user-network/scripts/verify-node-user-network.sh \
-  "${AIRGAP_SSH_USER}@${AIRGAP_MASTER_PRIVATE_IP}:/tmp/"
+make 02-01-user-network-run
 ```
 
-설명: master 노드에서 바로 실행할 수 있게 `/tmp`로 스크립트를 전달한다.
+설명: master/worker에 스크립트를 전송하고, `configure-node-user-network.sh` 실행 후 `verify-node-user-network.sh`를 즉시 호출한다. 이 단계가 성공하면 `02-01-user-network-apply.done` 상태 마커를 기록한다.
 
-## 02-01.4. worker 노드에 스크립트 전달
+## 02-01.4. 실제 적용 재검증
 ```bash
-scp -i "${AIRGAP_SSH_KEY_PATH}" \
-  -o ProxyCommand="ssh -i ${AIRGAP_SSH_KEY_PATH} -W %h:%p ${AIRGAP_SSH_USER}@${AIRGAP_BASTION_PUBLIC_IP}" \
-  ops/02-user-network/scripts/configure-node-user-network.sh \
-  ops/02-user-network/scripts/verify-node-user-network.sh \
-  "${AIRGAP_SSH_USER}@${AIRGAP_WORKER1_PRIVATE_IP}:/tmp/"
+make 02-01-user-network-verify
 ```
 
-설명: worker 노드에서 바로 실행할 수 있게 `/tmp`로 스크립트를 전달한다.
+설명: 이미 적용된 master/worker 상태를 다시 읽어 `devops`, sudo 그룹, hostname, `/etc/hosts` 결과를 재검증한다. `all-verify`는 이 결과 마커를 사용해 실제 적용 여부를 표시한다.
 
-## 02-01.5. master 노드에서 사용자 및 네트워크 설정 실행
+## 02-01.5. 상태 초기화
 ```bash
-ssh -i "${AIRGAP_SSH_KEY_PATH}" \
-  -o ProxyCommand="ssh -i ${AIRGAP_SSH_KEY_PATH} -W %h:%p ${AIRGAP_SSH_USER}@${AIRGAP_BASTION_PUBLIC_IP}" \
-  "${AIRGAP_SSH_USER}@${AIRGAP_MASTER_PRIVATE_IP}"
-
-chmod +x /tmp/configure-node-user-network.sh /tmp/verify-node-user-network.sh
-
-sudo /tmp/configure-node-user-network.sh \
-  --hostname k8s-master \
-  --self-ip "${AIRGAP_MASTER_PRIVATE_IP}" \
-  --self-name k8s-master \
-  --peer-ip "${AIRGAP_WORKER1_PRIVATE_IP}" \
-  --peer-name k8s-worker1
-
-sudo /tmp/verify-node-user-network.sh \
-  --expected-hostname k8s-master \
-  --self-ip "${AIRGAP_MASTER_PRIVATE_IP}" \
-  --self-name k8s-master \
-  --peer-ip "${AIRGAP_WORKER1_PRIVATE_IP}" \
-  --peer-name k8s-worker1
+make 02-01-user-network-clear
 ```
 
-설명: `devops` 사용자 생성, sudo 권한 부여, hostname 설정, `/etc/hosts` 등록을 master 노드에 적용하고 바로 검증한다.
+설명: `02-01` 실제 적용 상태 마커만 제거한다. 노드 설정 자체를 되돌리지는 않는다.
 
-## 02-01.6. worker 노드에서 사용자 및 네트워크 설정 실행
-```bash
-ssh -i "${AIRGAP_SSH_KEY_PATH}" \
-  -o ProxyCommand="ssh -i ${AIRGAP_SSH_KEY_PATH} -W %h:%p ${AIRGAP_SSH_USER}@${AIRGAP_BASTION_PUBLIC_IP}" \
-  "${AIRGAP_SSH_USER}@${AIRGAP_WORKER1_PRIVATE_IP}"
-
-chmod +x /tmp/configure-node-user-network.sh /tmp/verify-node-user-network.sh
-
-sudo /tmp/configure-node-user-network.sh \
-  --hostname k8s-worker1 \
-  --self-ip "${AIRGAP_WORKER1_PRIVATE_IP}" \
-  --self-name k8s-worker1 \
-  --peer-ip "${AIRGAP_MASTER_PRIVATE_IP}" \
-  --peer-name k8s-master
-
-sudo /tmp/verify-node-user-network.sh \
-  --expected-hostname k8s-worker1 \
-  --self-ip "${AIRGAP_WORKER1_PRIVATE_IP}" \
-  --self-name k8s-worker1 \
-  --peer-ip "${AIRGAP_MASTER_PRIVATE_IP}" \
-  --peer-name k8s-master
-```
-
-설명: worker 노드에도 같은 항목을 적용하고 바로 검증한다.
-
-## 02-01.7. 검증 기준
+## 02-01.6. 검증 기준
 ```text
 [OK]   통과
 [WARN] 수동 확인 필요
 [FAIL] 수정 필요
 ```
 
-설명: 두 노드 모두 `devops`, hostname, `/etc/hosts` 검증이 `FAIL` 없이 끝나야 다음 장으로 진행한다.
+설명: `02-01-user-network-run` 또는 `02-01-user-network-verify` 마지막 결과가 `[RESULT] SUCCESS`여야 다음 장으로 진행한다.

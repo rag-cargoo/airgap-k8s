@@ -1,0 +1,41 @@
+assignment:
+  target_environment: "aws-bastion-simulation"
+  install_mode: "manual-and-ansible"
+
+access:
+  use_bastion: true
+  bastion_host: "bastion"
+  bastion_public_ip: "13.125.228.66"
+  control_node_host: ""
+  control_node_ip: ""
+  ssh_user: "ec2-user"
+  ssh_key_path: "/home/aki/.aws/key/260428-k8s-key.pem"
+  ssh_port: 22
+  proxy_jump_required: true
+
+nodes:
+  master_host: "k8s-master"
+  master_private_ip: "10.10.20.151"
+  worker1_host: "k8s-worker1"
+  worker1_private_ip: "10.10.20.154"
+
+cluster:
+  kubernetes_version: "v1.35.3"
+  container_runtime: "containerd"
+  cni: "calico"
+  pod_cidr: ""
+  service_cidr: ""
+  os_distribution: ""
+  kernel_version: ""
+
+paths:
+  offline_assets_archive: "offline-assets.tar.gz"
+  server_assets_dir: "/opt/offline-assets"
+  ops_runtime_archive: "ops-runtime.tar.gz"
+  server_ops_runtime_dir: "/opt/airgap-k8s-ops"
+
+execution:
+  manual_entry_node: "bastion"
+  ansible_control_node: "bastion"
+  worker_scale_expected: false
+  inventory_strategy: "generated-from-survey"

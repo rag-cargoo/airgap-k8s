@@ -4,14 +4,17 @@ MAKEFLAGS += --no-print-directory
 OPS01_DIR := ops/01-airgap-linux-environment
 OPS02_DIR := ops/02-user-network
 OPS03_DIR := ops/03-kubernetes-cluster
+OPSCOMMON_DIR := ops/common
 
 .PHONY: help \
 	00-01-project-root-check \
 	01-01-terraform-run 01-01-terraform-verify \
 	01-02-env-file-create 01-02-env-file-verify 01-02-env-vars-verify 01-02-env-file-clear \
 	01-03-offline-assets-run 01-03-offline-assets-verify 01-03-offline-assets-clear \
-	02-01-user-network-scripts-verify \
-	03-01-preflight-script-verify
+	ops-runtime-bundle-run ops-runtime-bundle-verify ops-runtime-bundle-clear \
+	all-verify \
+	02-01-user-network-run 02-01-user-network-verify 02-01-user-network-clear 02-01-user-network-scripts-verify \
+	03-01-preflight-run 03-01-preflight-verify 03-01-preflight-clear 03-01-preflight-script-verify
 
 help:
 	@printf "Targets:\n\n"
@@ -30,10 +33,23 @@ help:
 	@printf "  01-03-offline-assets-verify    Verify offline-assets full flow\n"
 	@printf "  01-03-offline-assets-clear     Clear offline-assets generated outputs\n"
 	@printf "  Detail: cd $(OPS01_DIR) && make help\n\n"
+	@printf "[Common Delivery Runtime]\n"
+	@printf "  ops-runtime-bundle-run         Build bastion runtime source bundle\n"
+	@printf "  ops-runtime-bundle-verify      Verify bastion runtime source bundle\n"
+	@printf "  ops-runtime-bundle-clear       Clear bastion runtime generated outputs\n"
+	@printf "  Detail: cd $(OPSCOMMON_DIR) && make help\n\n"
+	@printf "[Overall Readiness]\n"
+	@printf "  all-verify                     Run full pre-install readiness verification\n\n"
 	@printf "[02-01 User And Network]\n"
+	@printf "  02-01-user-network-run             Run actual user/network apply + verify\n"
+	@printf "  02-01-user-network-verify          Re-run actual user/network verify\n"
+	@printf "  02-01-user-network-clear           Clear 02-01 actual state marker\n"
 	@printf "  02-01-user-network-scripts-verify  Verify node user/network scripts syntax\n"
 	@printf "  Detail: cd $(OPS02_DIR) && make help\n\n"
 	@printf "[03-01 Preflight]\n"
+	@printf "  03-01-preflight-run             Run remote master/worker preflight\n"
+	@printf "  03-01-preflight-verify          Re-run remote preflight verify\n"
+	@printf "  03-01-preflight-clear           Clear 03-01 actual state marker\n"
 	@printf "  03-01-preflight-script-verify  Verify kubeadm preflight script syntax\n"
 	@printf "  Detail: cd $(OPS03_DIR) && make help\n"
 
@@ -73,8 +89,39 @@ help:
 01-03-offline-assets-clear:
 	@$(MAKE) -C "$(OPS01_DIR)" 01-03-offline-assets-clear
 
+ops-runtime-bundle-run:
+	@$(MAKE) -C "$(OPSCOMMON_DIR)" ops-runtime-bundle-run
+
+ops-runtime-bundle-verify:
+	@$(MAKE) -C "$(OPSCOMMON_DIR)" ops-runtime-bundle-verify
+
+ops-runtime-bundle-clear:
+	@$(MAKE) -C "$(OPSCOMMON_DIR)" ops-runtime-bundle-clear
+
+all-verify:
+	@cd "$(OPSCOMMON_DIR)" && chmod +x scripts/run-all-verify.sh
+	@./ops/common/scripts/run-all-verify.sh
+
+02-01-user-network-run:
+	@$(MAKE) -C "$(OPS02_DIR)" 02-01-user-network-run
+
+02-01-user-network-verify:
+	@$(MAKE) -C "$(OPS02_DIR)" 02-01-user-network-verify
+
+02-01-user-network-clear:
+	@$(MAKE) -C "$(OPS02_DIR)" 02-01-user-network-clear
+
 02-01-user-network-scripts-verify:
 	@$(MAKE) -C "$(OPS02_DIR)" 02-01-user-network-scripts-verify
+
+03-01-preflight-run:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-01-preflight-run
+
+03-01-preflight-verify:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-01-preflight-verify
+
+03-01-preflight-clear:
+	@$(MAKE) -C "$(OPS03_DIR)" 03-01-preflight-clear
 
 03-01-preflight-script-verify:
 	@$(MAKE) -C "$(OPS03_DIR)" 03-01-preflight-script-verify
