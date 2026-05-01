@@ -6,6 +6,7 @@ OPS02_DIR := ops/02-user-network
 OPS03_DIR := ops/03-kubernetes-cluster
 OPS04_DIR := ops/04-services-monitoring
 OPS05_DIR := ops/05-prometheus-grafana-external-access
+OPS06_DIR := ops/06-submission
 OPSCOMMON_DIR := ops/common
 
 .PHONY: help \
@@ -28,7 +29,8 @@ OPSCOMMON_DIR := ops/common
 	04-05-grafana-alloy-run 04-05-grafana-alloy-verify \
 	04-06-services-verify \
 	05-prometheus-grafana-external-access-run 05-prometheus-grafana-external-access-verify 05-prometheus-grafana-external-access-clear 05-prometheus-grafana-external-access-script-verify \
-	05-prometheus-grafana-browser-tunnel-start 05-prometheus-grafana-browser-tunnel-status 05-prometheus-grafana-browser-tunnel-stop
+	05-prometheus-grafana-browser-tunnel-start 05-prometheus-grafana-browser-tunnel-status 05-prometheus-grafana-browser-tunnel-stop \
+	06-submission-build 06-submission-verify 06-submission-clear 06-submission-script-verify
 
 help:
 	@printf "Targets:\n\n"
@@ -101,6 +103,12 @@ help:
 	@printf "  05-prometheus-grafana-external-access-clear     Clear 05 state marker\n"
 	@printf "  05-prometheus-grafana-external-access-script-verify Verify 05 scripts syntax\n"
 	@printf "  Detail: cd $(OPS05_DIR) && make help\n"
+	@printf "\n[06 Submission]\n"
+	@printf "  06-submission-build          Build manual outputs and server config ZIP\n"
+	@printf "  06-submission-verify         Verify generated submission package\n"
+	@printf "  06-submission-clear          Clear generated submission outputs\n"
+	@printf "  06-submission-script-verify  Verify 06 scripts syntax\n"
+	@printf "  Detail: cd $(OPS06_DIR) && make help\n"
 
 00-01-project-root-check:
 	@pwd
@@ -281,3 +289,15 @@ all-verify:
 
 05-prometheus-grafana-external-access-script-verify:
 	@$(MAKE) -C "$(OPS05_DIR)" 05-prometheus-grafana-external-access-script-verify
+
+06-submission-build:
+	@$(MAKE) -C "$(OPS06_DIR)" 06-submission-build
+
+06-submission-verify:
+	@$(MAKE) -C "$(OPS06_DIR)" 06-submission-verify
+
+06-submission-clear:
+	@$(MAKE) -C "$(OPS06_DIR)" 06-submission-clear
+
+06-submission-script-verify:
+	@$(MAKE) -C "$(OPS06_DIR)" 06-submission-script-verify

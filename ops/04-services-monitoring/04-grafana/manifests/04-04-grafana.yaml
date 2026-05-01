@@ -23,11 +23,31 @@ data:
     apiVersion: 1
     datasources:
       - name: Prometheus
+        uid: Prometheus
         type: prometheus
         access: proxy
         url: http://prometheus.monitoring.svc.cluster.local:9090
         isDefault: true
         editable: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-providers
+  namespace: monitoring
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: Airgap Kubernetes
+        orgId: 1
+        folder: Airgap
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -67,6 +87,8 @@ spec:
       app.kubernetes.io/name: grafana
   template:
     metadata:
+      annotations:
+        monitoring.airgap.local/config-revision: "2026-05-01-03"
       labels:
         app.kubernetes.io/name: grafana
     spec:
@@ -99,6 +121,10 @@ spec:
               mountPath: /var/lib/grafana
             - name: datasources
               mountPath: /etc/grafana/provisioning/datasources
+            - name: dashboard-providers
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -106,3 +132,16 @@ spec:
         - name: datasources
           configMap:
             name: grafana-datasources
+        - name: dashboard-providers
+          configMap:
+            name: grafana-dashboard-providers
+        - name: dashboards
+          projected:
+            defaultMode: 0444
+            sources:
+              - configMap:
+                  name: grafana-dashboard-node-exporter-full
+              - configMap:
+                  name: grafana-dashboard-kube-state-metrics-overview
+              - configMap:
+                  name: grafana-dashboard-kubernetes-cluster-monitoring

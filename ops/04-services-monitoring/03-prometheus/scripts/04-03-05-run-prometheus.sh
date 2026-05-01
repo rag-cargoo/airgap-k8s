@@ -6,5 +6,11 @@ SERVICE_WORKLOAD="statefulset/prometheus"
 SERVICE_POD_SELECTOR="app.kubernetes.io/name=prometheus"
 SERVICE_PVC_NAMES="data-prometheus-0"
 SERVICE_SERVICE_NAMES="prometheus"
+SERVICE_IMAGE_HOSTS="master worker1"
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/04-service-lib.sh"
 service_apply_manifests
+remote_master_bash <<'REMOTE'
+set -euo pipefail
+export KUBECONFIG=/etc/kubernetes/admin.conf
+kubectl -n monitoring delete pod -l app.kubernetes.io/name=node-exporter --ignore-not-found >/dev/null
+REMOTE

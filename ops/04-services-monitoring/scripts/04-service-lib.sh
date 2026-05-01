@@ -49,10 +49,13 @@ service_init() {
 
   IMAGE_LIST="${SERVICE_ROOT}/assets/images.txt"
   MANIFEST_SRC_DIR="${SERVICE_ROOT}/manifests"
+  DASHBOARD_SRC_DIR="${SERVICE_ROOT}/dashboards"
   LOCAL_IMAGE_DIR="${PROJECT_ROOT}/assets/offline-assets/services/images/${SERVICE_ID}"
   LOCAL_MANIFEST_DIR="${PROJECT_ROOT}/assets/offline-assets/services/manifests/${SERVICE_ID}"
+  LOCAL_DASHBOARD_DIR="${LOCAL_MANIFEST_DIR}/dashboards"
   REMOTE_IMAGE_DIR="${SERVER_ASSETS_DIR}/services/images/${SERVICE_ID}"
   REMOTE_MANIFEST_DIR="${SERVER_ASSETS_DIR}/services/manifests/${SERVICE_ID}"
+  REMOTE_DASHBOARD_DIR="${REMOTE_MANIFEST_DIR}/dashboards"
   REMOTE_STAGING_DIR="${REMOTE_STAGING_ROOT}/${SERVICE_ID}"
 }
 
@@ -95,13 +98,50 @@ service_images() {
 remote_cmd() {
   local host_ip="$1"
   shift
-  ssh -p "${AIRGAP_SSH_PORT}" -i "${AIRGAP_SSH_KEY_PATH}" "${PROXY_ARGS[@]}" \
+  ssh -n -p "${AIRGAP_SSH_PORT}" -i "${AIRGAP_SSH_KEY_PATH}" "${PROXY_ARGS[@]}" \
     "${AIRGAP_SSH_USER}@${host_ip}" "$@"
 }
 
 remote_master_bash() {
   ssh -p "${AIRGAP_SSH_PORT}" -i "${AIRGAP_SSH_KEY_PATH}" "${PROXY_ARGS[@]}" \
     "${AIRGAP_SSH_USER}@${AIRGAP_MASTER_PRIVATE_IP}" "sudo bash -s"
+}
+
+service_host_ip() {
+  case "$1" in
+    master)
+      printf '%s' "${AIRGAP_MASTER_PRIVATE_IP}"
+      ;;
+    worker1)
+      printf '%s' "${AIRGAP_WORKER1_PRIVATE_IP}"
+      ;;
+    *)
+      printf '[FAIL] unknown service host key: %s\n' "$1" >&2
+      exit 1
+      ;;
+  esac
+}
+
+service_host_name() {
+  case "$1" in
+    master)
+      printf '%s' "${AIRGAP_MASTER_HOST}"
+      ;;
+    worker1)
+      printf '%s' "${AIRGAP_WORKER1_HOST}"
+      ;;
+    *)
+      printf '[FAIL] unknown service host key: %s\n' "$1" >&2
+      exit 1
+      ;;
+  esac
+}
+
+service_image_hosts() {
+  local host
+  for host in ${SERVICE_IMAGE_HOSTS:-worker1}; do
+    printf '%s\n' "${host}"
+  done
 }
 
 service_download_assets() {
@@ -125,6 +165,14 @@ service_download_assets() {
     while IFS= read -r -d '' manifest; do
       cp "${manifest}" "${LOCAL_MANIFEST_DIR}/"
     done
+  rm -rf "${LOCAL_DASHBOARD_DIR}"
+  if [[ -d "${DASHBOARD_SRC_DIR}" ]]; then
+    mkdir -p "${LOCAL_DASHBOARD_DIR}"
+    find "${DASHBOARD_SRC_DIR}" -maxdepth 1 -type f -name '*.json' -print0 |
+      while IFS= read -r -d '' dashboard; do
+        cp "${dashboard}" "${LOCAL_DASHBOARD_DIR}/"
+      done
+  fi
   printf '[RESULT] SUCCESS\n'
 }
 
@@ -145,58 +193,75 @@ service_verify_assets() {
     printf '[FAIL] no service manifests found: %s\n' "${LOCAL_MANIFEST_DIR}" >&2
     exit 1
   fi
+  if [[ -d "${DASHBOARD_SRC_DIR}" ]]; then
+    local expected_dashboards actual_dashboards
+    expected_dashboards="$(find "${DASHBOARD_SRC_DIR}" -maxdepth 1 -type f -name '*.json' | wc -l | tr -d ' ')"
+    if [[ -d "${LOCAL_DASHBOARD_DIR}" ]]; then
+      actual_dashboards="$(find "${LOCAL_DASHBOARD_DIR}" -maxdepth 1 -type f -name '*.json' | wc -l | tr -d ' ')"
+    else
+      actual_dashboards="0"
+    fi
+    if [[ "${actual_dashboards}" -lt "${expected_dashboards}" || "${expected_dashboards}" -eq 0 ]]; then
+      printf '[FAIL] dashboard json count mismatch: expected=%s actual=%s\n' "${expected_dashboards}" "${actual_dashboards}" >&2
+      exit 1
+    fi
+    printf '[OK] dashboard assets verified for %s: %s json files\n' "${SERVICE_ID}" "${actual_dashboards}"
+  fi
   printf '[OK] local assets verified for %s\n' "${SERVICE_ID}"
   printf '[RESULT] SUCCESS\n'
 }
 
 service_transfer_assets() {
   service_init
-  local host_ip host_name rsync_target ssh_config_info host_alias ssh_config_path
-  for host in master worker1; do
-    if [[ "${host}" == "master" ]]; then
-      host_ip="${AIRGAP_MASTER_PRIVATE_IP}"
-      host_name="${AIRGAP_MASTER_HOST}"
-    else
-      host_ip="${AIRGAP_WORKER1_PRIVATE_IP}"
-      host_name="${AIRGAP_WORKER1_HOST}"
-    fi
-    printf '[STEP] transfer %s assets to %s\n' "${SERVICE_ID}" "${host_name}"
-    remote_cmd "${host_ip}" "mkdir -p ${REMOTE_STAGING_DIR}/images ${REMOTE_STAGING_DIR}/manifests"
-    ssh_config_info="$(service_write_rsync_ssh_config "${host}" "${host_ip}")"
-    host_alias="${ssh_config_info%% *}"
-    ssh_config_path="${ssh_config_info#* }"
-    rsync_target="${host_alias}:${REMOTE_STAGING_DIR}"
-    if [[ "${host}" == "master" ]]; then
-      rsync -az --partial --inplace --delete -e "ssh -F ${ssh_config_path}" \
-        "${LOCAL_MANIFEST_DIR}/" "${rsync_target}/manifests/"
-      remote_cmd "${host_ip}" "sudo bash -lc '
+  local host host_ip host_name rsync_target ssh_config_info host_alias ssh_config_path
+
+  host="master"
+  host_ip="$(service_host_ip "${host}")"
+  host_name="$(service_host_name "${host}")"
+  printf '[STEP] transfer %s manifests to %s\n' "${SERVICE_ID}" "${host_name}"
+  remote_cmd "${host_ip}" "mkdir -p ${REMOTE_STAGING_DIR}/manifests"
+  ssh_config_info="$(service_write_rsync_ssh_config "${host}" "${host_ip}")"
+  host_alias="${ssh_config_info%% *}"
+  ssh_config_path="${ssh_config_info#* }"
+  rsync_target="${host_alias}:${REMOTE_STAGING_DIR}"
+  rsync -az --partial --inplace --delete -e "ssh -F ${ssh_config_path}" \
+    "${LOCAL_MANIFEST_DIR}/" "${rsync_target}/manifests/"
+  remote_cmd "${host_ip}" "sudo bash -lc '
 set -euo pipefail
-rm -rf ${REMOTE_MANIFEST_DIR} ${REMOTE_IMAGE_DIR}
+rm -rf ${REMOTE_MANIFEST_DIR}
 mkdir -p ${REMOTE_MANIFEST_DIR}
 cp -a ${REMOTE_STAGING_DIR}/manifests/. ${REMOTE_MANIFEST_DIR}/
 rm -rf ${REMOTE_STAGING_DIR}
 '"
-    else
-      rsync -az --partial --inplace --delete -e "ssh -F ${ssh_config_path}" \
-        "${LOCAL_IMAGE_DIR}/" "${rsync_target}/images/"
-      remote_cmd "${host_ip}" "sudo bash -lc '
+
+  while IFS= read -r host; do
+    host_ip="$(service_host_ip "${host}")"
+    host_name="$(service_host_name "${host}")"
+    printf '[STEP] transfer %s images to %s\n' "${SERVICE_ID}" "${host_name}"
+    remote_cmd "${host_ip}" "mkdir -p ${REMOTE_STAGING_DIR}/images"
+    ssh_config_info="$(service_write_rsync_ssh_config "${host}" "${host_ip}")"
+    host_alias="${ssh_config_info%% *}"
+    ssh_config_path="${ssh_config_info#* }"
+    rsync_target="${host_alias}:${REMOTE_STAGING_DIR}"
+    rsync -az --partial --inplace --delete -e "ssh -F ${ssh_config_path}" \
+      "${LOCAL_IMAGE_DIR}/" "${rsync_target}/images/"
+    remote_cmd "${host_ip}" "sudo bash -lc '
 set -euo pipefail
 rm -rf ${REMOTE_IMAGE_DIR}
 mkdir -p ${REMOTE_IMAGE_DIR}
 cp -a ${REMOTE_STAGING_DIR}/images/. ${REMOTE_IMAGE_DIR}/
 rm -rf ${REMOTE_STAGING_DIR}
 '"
-    fi
-  done
+  done < <(service_image_hosts)
   printf '[RESULT] SUCCESS\n'
 }
 
 service_import_images() {
   service_init
-  local host_ip host_name
-  for host in worker1; do
-    host_ip="${AIRGAP_WORKER1_PRIVATE_IP}"
-    host_name="${AIRGAP_WORKER1_HOST}"
+  local host host_ip host_name
+  while IFS= read -r host; do
+    host_ip="$(service_host_ip "${host}")"
+    host_name="$(service_host_name "${host}")"
     printf '[STEP] import %s images on %s\n' "${SERVICE_ID}" "${host_name}"
     remote_cmd "${host_ip}" "sudo bash -lc '
 set -euo pipefail
@@ -209,7 +274,7 @@ if [[ \"${KEEP_REMOTE_SERVICE_IMAGE_TARS}\" != \"true\" ]]; then
   find \"\$image_dir\" -maxdepth 1 -name \"*.tar\" -delete
 fi
 '"
-  done
+  done < <(service_image_hosts)
   printf '[RESULT] SUCCESS\n'
 }
 
@@ -254,16 +319,16 @@ find \"\$manifest_dir\" -maxdepth 1 -type f \( -name \"*.yaml\" -o -name \"*.yml
 
 service_verify_remote_images() {
   service_init
-  local host_ip host_name image
-  for host in worker1; do
-    host_ip="${AIRGAP_WORKER1_PRIVATE_IP}"
-    host_name="${AIRGAP_WORKER1_HOST}"
+  local host host_ip host_name image
+  while IFS= read -r host; do
+    host_ip="$(service_host_ip "${host}")"
+    host_name="$(service_host_name "${host}")"
     printf '[CHECK] imported images for %s on %s\n' "${SERVICE_ID}" "${host_name}"
     while IFS= read -r image; do
       remote_cmd "${host_ip}" "sudo bash -lc 'ctr -n k8s.io images list | grep -Fq \"${image}\"'"
     done < <(service_images)
     printf '[OK] imported images verified for %s on %s\n' "${SERVICE_ID}" "${host_name}"
-  done
+  done < <(service_image_hosts)
   printf '[RESULT] SUCCESS\n'
 }
 

@@ -14,12 +14,33 @@ data:
       level  = "info"
       format = "logfmt"
     }
+
+    prometheus.exporter.self "alloy" {}
+
+    prometheus.scrape "alloy_self" {
+      targets         = prometheus.exporter.self.alloy.targets
+      scrape_interval = "15s"
+      forward_to      = [prometheus.remote_write.prometheus.receiver]
+    }
+
+    prometheus.remote_write "prometheus" {
+      external_labels = {
+        cluster = "airgap-k8s",
+        source  = "grafana-alloy",
+      }
+
+      endpoint {
+        url = "http://prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+      }
+    }
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: alloy
   namespace: monitoring
+  labels:
+    app.kubernetes.io/name: alloy
 spec:
   selector:
     app.kubernetes.io/name: alloy
@@ -40,6 +61,8 @@ spec:
       app.kubernetes.io/name: alloy
   template:
     metadata:
+      annotations:
+        monitoring.airgap.local/config-revision: "2026-05-01-01"
       labels:
         app.kubernetes.io/name: alloy
     spec:

@@ -13,4 +13,6 @@ make 04-06-services-verify
 
 ## Checks
 - `database` namespace: MariaDB, MongoDB Pod/PVC/Service
-- `monitoring` namespace: Prometheus, Grafana, Alloy Pod/PVC/Service
+- `monitoring` namespace: Prometheus, node-exporter, kube-state-metrics, Grafana, Alloy Pod/PVC/Service
+- Prometheus scrape targets: `node-exporter`, `kube-state-metrics`, `alloy`
+- Grafana dashboard: node resource panels and namespace service/workload/pod status panels

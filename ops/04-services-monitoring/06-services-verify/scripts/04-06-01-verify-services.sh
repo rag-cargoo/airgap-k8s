@@ -35,8 +35,18 @@ kubectl get namespace database monitoring >/dev/null
 kubectl -n database rollout status statefulset/mariadb --timeout=300s >/dev/null
 kubectl -n database rollout status statefulset/mongodb --timeout=300s >/dev/null
 kubectl -n monitoring rollout status statefulset/prometheus --timeout=300s >/dev/null
+kubectl -n monitoring rollout status daemonset/node-exporter --timeout=300s >/dev/null
+kubectl -n monitoring rollout status deployment/kube-state-metrics --timeout=300s >/dev/null
 kubectl -n monitoring rollout status deployment/grafana --timeout=300s >/dev/null
 kubectl -n monitoring rollout status deployment/alloy --timeout=300s >/dev/null
+kubectl -n monitoring get configmap prometheus-config prometheus-rules >/dev/null
+kubectl -n monitoring get configmap \
+  grafana-datasources \
+  grafana-dashboard-providers \
+  grafana-dashboard-node-exporter-full \
+  grafana-dashboard-kube-state-metrics-overview \
+  grafana-dashboard-kubernetes-cluster-monitoring >/dev/null
+kubectl -n monitoring get configmap alloy-config >/dev/null
 for item in \
   database/data-mariadb-0 \
   database/data-mongodb-0 \
@@ -50,6 +60,28 @@ for item in \
     exit 1
   fi
 done
+kubectl -n monitoring exec prometheus-0 -c prometheus -- promtool check config /etc/prometheus/prometheus.yml >/dev/null
+kubectl -n monitoring exec prometheus-0 -c prometheus -- promtool check rules /etc/prometheus/rules/airgap-monitoring.yml >/dev/null
+for query in 'up{job="node-exporter"}' 'up{job="alloy"}' 'up{job="kube-state-metrics"}' 'up{job="kubernetes-cadvisor"}' 'kube_pod_status_ready{namespace=~"database|monitoring",condition="true"}'; do
+  for attempt in $(seq 1 30); do
+    if kubectl -n monitoring exec prometheus-0 -c prometheus -- \
+      promtool query instant http://127.0.0.1:9090 "${query}" | grep -q '=> 1'; then
+      printf '[OK] Prometheus query returned healthy targets: %s\n' "${query}"
+      break
+    fi
+    if [[ "${attempt}" -eq 30 ]]; then
+      printf '[FAIL] Prometheus query did not return healthy targets: %s\n' "${query}" >&2
+      kubectl -n monitoring exec prometheus-0 -c prometheus -- \
+        promtool query instant http://127.0.0.1:9090 'up' >&2 || true
+      exit 1
+    fi
+    printf '[WAIT] Prometheus query not ready: %s retry=%s/30\n' "${query}" "${attempt}"
+    sleep 10
+  done
+done
+kubectl -n monitoring exec prometheus-0 -c prometheus -- \
+  promtool query instant http://127.0.0.1:9090 'machine_cpu_cores{kubernetes_io_hostname!=""}' | grep -q '=>'
+printf '[OK] Prometheus cAdvisor machine metrics returned data\n'
 kubectl get pods -n database -o wide
 kubectl get pods -n monitoring -o wide
 kubectl get pvc -n database
