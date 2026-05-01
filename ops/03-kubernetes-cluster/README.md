@@ -7,8 +7,9 @@
 - `manual-kubeadm/`은 수동 `kubeadm` 설치 자산과 단계별 실행/검증 스크립트를 둔다.
 - `ansible-kubeadm/`은 같은 절차를 자동화한 playbook 자산을 둔다. Ansible 전용 preflight와 실행 스크립트는 이 디렉터리 안에서 별도로 관리한다.
 - `calico/`는 Calico 적용 자산을 둔다.
+- `storageclass/`는 04 서비스 배포 전에 필요한 기본 StorageClass 구성 자산과 운영 runbook을 둔다.
 - 두 모드는 같은 절차의 수동/자동화 버전이어야 한다.
-- 제출 매뉴얼은 `manual/03-쿠버네티스-클러스터-구성/manual-kubeadm/01..10` 디렉터리로 이 구조와 1:1 대응한다.
+- 제출 매뉴얼은 `manual/03-쿠버네티스-클러스터-구성/` 아래의 `manual-kubeadm/`, `storageclass/`, `ansible-kubeadm/`, `calico/` 디렉터리로 이 구조와 1:1 대응한다.
 - 대상 환경이 바뀌어도 공통 원칙은 같다. bastion 경유든 폐쇄망 내부 control node든 SSH 대상, inventory, ProxyCommand, node IP만 맞추면 같은 자산 구조를 재사용할 수 있어야 한다.
 
 ## Stage Alignment
@@ -30,6 +31,9 @@
   - `04-control-plane-init/`
   - `05-calico/`
   - `06-worker-join/`
+- Cluster add-ons
+  - `calico/`
+  - `storageclass/` (`03-03-storageclass-*`, `step-03-03-01..03-*`)
 
 ## Official References
 - https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/

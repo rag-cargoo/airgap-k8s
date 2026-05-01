@@ -1,2 +1,1 @@
-# One container image per line.
-# Image list depends on the selected Grafana chart or manifests.
+docker.io/grafana/grafana:11.3.0

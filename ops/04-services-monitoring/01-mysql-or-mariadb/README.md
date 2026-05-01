@@ -1,15 +1,19 @@
-# MySQL or MariaDB
+# 04-01 MySQL or MariaDB
 
-- MySQL 또는 MariaDB 배포 manifest, values, Secret 예시를 둔다.
-- 서비스 사용 여부를 독립적으로 선택할 수 있도록 자산 준비와 배포 스크립트를 이 디렉터리 안에서 관리한다.
+MariaDB 기준으로 구현한다.
 
-## Layout
-- `assets/images.txt`: 필요한 컨테이너 이미지 목록
-- `assets/charts.txt`: Helm 사용 시 필요한 chart 목록
-- `manifests/`: Namespace, Secret, ConfigMap, PV/PVC, Service, workload manifest
-- `values/`: Helm values 파일
-- `scripts/`: 다운로드, 검증, 전송, 이미지 import, 배포, 검증 스크립트
+## Files
+- `assets/images.txt`: `docker.io/library/mariadb:11.4`
+- `manifests/04-01-mariadb.yaml`: Namespace, Secret, Service, StatefulSet, PVC template
+- `scripts/04-01-01-download-assets.sh`
+- `scripts/04-01-02-verify-assets.sh`
+- `scripts/04-01-03-transfer-files.sh`
+- `scripts/04-01-04-import-images.sh`
+- `scripts/04-01-05-run-mysql-or-mariadb.sh`
+- `scripts/04-01-06-verify-mysql-or-mariadb.sh`
 
-## Target Draft
-- `04-01-mysql-or-mariadb-run`
-- `04-01-mysql-or-mariadb-verify`
+## Targets
+```bash
+make 04-01-mysql-or-mariadb-run
+make 04-01-mysql-or-mariadb-verify
+```

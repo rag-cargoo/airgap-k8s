@@ -12,8 +12,17 @@
 - `manual-kubeadm/08-calico/`: [Calico 적용](./manual-kubeadm/08-calico/README.md)
 - `manual-kubeadm/09-worker-join/`: [worker join](./manual-kubeadm/09-worker-join/README.md)
 - `manual-kubeadm/10-cluster-verify/`: [클러스터 검증](./manual-kubeadm/10-cluster-verify/README.md)
+- `storageclass/`: [StorageClass 구성 기준](./storageclass/README.md), [StorageClass 운영 매뉴얼](./storageclass/operations.md)
 - `ansible-kubeadm/`: [Ansible kubeadm 설치 단계](./ansible-kubeadm/README.md)
 - `calico/`: [Calico 적용 기준](./calico/README.md)
+
+## ops 매칭
+| 매뉴얼 디렉터리 | ops 디렉터리 | 주요 target |
+| --- | --- | --- |
+| `manual-kubeadm/` | `ops/03-kubernetes-cluster/manual-kubeadm/` | `03-02-manual-kubeadm-*`, `step-03-02-01..10-*` |
+| `storageclass/` | `ops/03-kubernetes-cluster/storageclass/` | `03-03-storageclass-*`, `step-03-03-01..03-*` |
+| `ansible-kubeadm/` | `ops/03-kubernetes-cluster/ansible-kubeadm/` | `03-04-ansible-kubeadm-*` 예정 |
+| `calico/` | `ops/03-kubernetes-cluster/calico/` | `03-02-08-calico-*`에서 사용 |
 
 ## 03-01. 환경변수 로드
 ```bash
@@ -104,3 +113,31 @@ make 03-02-manual-kubeadm-troubleshoot
 ```
 
 설명: 전송, 패키지, 이미지 import, Calico, 노드 Ready 상태가 불명확하면 이 target으로 현재 상태를 먼저 확인한다.
+
+## 03-03. StorageClass 확인
+```bash
+kubectl get storageclass
+kubectl get pvc -A
+```
+
+설명: kubeadm과 Calico는 스토리지 프로비저너를 설치하지 않는다. `kubectl get storageclass` 결과가 비어 있으면 04 서비스 배포 전에 [StorageClass 구성 기준](./storageclass/README.md)에 따라 기본 StorageClass를 먼저 구성한다.
+
+```bash
+make 03-03-storageclass-run
+make 03-03-storageclass-verify
+```
+
+설명: `03-03-storageclass-run`은 local-path-provisioner 이미지를 master/worker에 import하고 manifest를 적용한다. `03-03-storageclass-verify`는 테스트 PVC와 Pod로 동적 PV 생성까지 확인한다.
+
+단계별 실행이 필요하면 아래 순서로 실행한다.
+
+```bash
+make step-03-03-01-storageclass-assets-run
+make step-03-03-01-storageclass-assets-verify
+make step-03-03-02-storageclass-image-import-run
+make step-03-03-02-storageclass-image-import-verify
+make step-03-03-03-storageclass-apply-run
+make step-03-03-03-storageclass-apply-verify
+```
+
+설명: StorageClass도 `03-03-01`, `03-03-02`, `03-03-03` 세부 단계로 나누고, 각 세부 단계마다 같은 번호의 verify를 둔다.

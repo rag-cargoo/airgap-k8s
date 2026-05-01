@@ -1,2 +1,1 @@
-# One container image per line.
-# Image list depends on the selected Prometheus chart or manifests.
+docker.io/prom/prometheus:v2.55.1

@@ -10,6 +10,7 @@ AIRGAP_USE_BASTION="${AIRGAP_USE_BASTION:-false}"
 AIRGAP_MASTER_HOST="${AIRGAP_MASTER_HOST:-k8s-master}"
 AIRGAP_WORKER1_HOST="${AIRGAP_WORKER1_HOST:-k8s-worker1}"
 SERVER_ASSETS_DIR="${AIRGAP_SERVER_ASSETS_DIR:-/opt/offline-assets}"
+KEEP_REMOTE_K8S_IMAGE_TARS="${AIRGAP_KEEP_REMOTE_K8S_IMAGE_TARS:-false}"
 
 require_env() {
   local name="$1"
@@ -41,10 +42,18 @@ import_images() {
   local host_ip="$1"
   local host_name="$2"
   printf '[STEP] import Kubernetes and Calico images on %s\n' "${host_name}"
-  remote_cmd "${host_ip}" "sudo bash -lc '
+remote_cmd "${host_ip}" "sudo bash -lc '
 set -euo pipefail
-for image_tar in ${SERVER_ASSETS_DIR}/kubernetes/images/kube-system/*.tar ${SERVER_ASSETS_DIR}/kubernetes/images/calico/*.tar; do
-  ctr -n k8s.io images import \"\$image_tar\" >/dev/null
+for image_dir in ${SERVER_ASSETS_DIR}/kubernetes/images/kube-system ${SERVER_ASSETS_DIR}/kubernetes/images/calico ${SERVER_ASSETS_DIR}/kubernetes/images/storageclass; do
+  if [[ ! -d \"\$image_dir\" ]]; then
+    continue
+  fi
+  while IFS= read -r -d \"\" image_tar; do
+    ctr -n k8s.io images import \"\$image_tar\" >/dev/null
+  done < <(find \"\$image_dir\" -maxdepth 1 -name \"*.tar\" -print0 | sort -z)
+  if [[ \"${KEEP_REMOTE_K8S_IMAGE_TARS}\" != \"true\" ]]; then
+    find \"\$image_dir\" -maxdepth 1 -name \"*.tar\" -delete
+  fi
 done
 '"
 }

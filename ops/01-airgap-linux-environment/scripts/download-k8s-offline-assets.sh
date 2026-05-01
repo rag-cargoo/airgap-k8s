@@ -8,6 +8,7 @@ K8S_PACKAGES_DIR="${ASSETS_ROOT}/kubernetes/packages/kubernetes"
 RUNTIME_PACKAGES_DIR="${ASSETS_ROOT}/kubernetes/packages/container-runtime"
 K8S_IMAGES_DIR="${ASSETS_ROOT}/kubernetes/images/kube-system"
 CALICO_IMAGES_DIR="${ASSETS_ROOT}/kubernetes/images/calico"
+STORAGECLASS_IMAGES_DIR="${ASSETS_ROOT}/kubernetes/images/storageclass"
 K8S_MANIFESTS_DIR="${ASSETS_ROOT}/kubernetes/manifests"
 CHECKSUMS_DIR="${ASSETS_ROOT}/common/checksums"
 
@@ -18,9 +19,12 @@ CRI_TOOLS_RPM_VERSION="1.35.0-150500.1.1"
 K8S_CNI_RPM_VERSION="1.8.0-150500.1.1"
 CALICO_VERSION="v3.31.4"
 CALICO_OPERATOR_VERSION="v1.40.7"
+CALICO_ENCAPSULATION="${AIRGAP_CALICO_ENCAPSULATION:-VXLAN}"
+LOCAL_PATH_PROVISIONER_VERSION="v0.0.35"
+BUSYBOX_VERSION="1.37.0"
 AL2023_IMAGE="amazonlinux:2023"
 DOWNLOAD_START_TS="$(date +%s)"
-DOWNLOAD_TOTAL_STEPS=7
+DOWNLOAD_TOTAL_STEPS=9
 DOWNLOAD_CURRENT_STEP=0
 
 format_duration() {
@@ -64,6 +68,7 @@ mkdir -p \
   "${RUNTIME_PACKAGES_DIR}" \
   "${K8S_IMAGES_DIR}" \
   "${CALICO_IMAGES_DIR}" \
+  "${STORAGECLASS_IMAGES_DIR}" \
   "${K8S_MANIFESTS_DIR}" \
   "${CHECKSUMS_DIR}"
 
@@ -131,6 +136,13 @@ quay.io/calico/whisker-backend:${CALICO_VERSION}
 EOF
 }
 
+write_storageclass_image_list() {
+  cat > "${STORAGECLASS_IMAGES_DIR}/images.txt" <<EOF
+docker.io/rancher/local-path-provisioner:${LOCAL_PATH_PROVISIONER_VERSION}
+docker.io/library/busybox:${BUSYBOX_VERSION}
+EOF
+}
+
 save_images_from_list() {
   local image_list_file="$1"
   local output_dir="$2"
@@ -147,6 +159,7 @@ save_images_from_list() {
 
 echo "[INFO] target Kubernetes version: ${K8S_PATCH_VERSION}"
 echo "[INFO] target Calico version: ${CALICO_VERSION}"
+echo "[INFO] target local-path-provisioner version: ${LOCAL_PATH_PROVISIONER_VERSION}"
 echo "[INFO] target asset format: rpm/dnf for Amazon Linux 2023"
 echo "[INFO] target architecture: x86_64"
 
@@ -190,9 +203,20 @@ curl -fsSL -o "${K8S_MANIFESTS_DIR}/operator-crds.yaml" \
   "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/operator-crds.yaml"
 curl -fsSL -o "${K8S_MANIFESTS_DIR}/tigera-operator.yaml" \
   "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/tigera-operator.yaml"
-curl -fsSL -o "${K8S_MANIFESTS_DIR}/custom-resources.yaml" \
-  "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/custom-resources.yaml"
+curl -fsSL "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/custom-resources.yaml" |
+  sed -e "s/encapsulation: VXLANCrossSubnet/encapsulation: ${CALICO_ENCAPSULATION}/" \
+    > "${K8S_MANIFESTS_DIR}/custom-resources.yaml"
 step_ok "downloaded Calico manifests"
+
+step_start "download StorageClass manifest"
+echo "[INFO] manifest: local-path-storage.yaml"
+curl -fsSL \
+  "https://raw.githubusercontent.com/rancher/local-path-provisioner/${LOCAL_PATH_PROVISIONER_VERSION}/deploy/local-path-storage.yaml" |
+  sed \
+    -e "s|image: rancher/local-path-provisioner:${LOCAL_PATH_PROVISIONER_VERSION}|image: docker.io/rancher/local-path-provisioner:${LOCAL_PATH_PROVISIONER_VERSION}|" \
+    -e "s|image: busybox$|image: docker.io/library/busybox:${BUSYBOX_VERSION}|" \
+    > "${K8S_MANIFESTS_DIR}/local-path-storage.yaml"
+step_ok "downloaded StorageClass manifest"
 
 step_start "generate kubeadm image list"
 list_kubeadm_images | tee "${K8S_IMAGES_DIR}/images.txt" >/dev/null
@@ -211,11 +235,20 @@ sed 's/^/[INFO]   /' "${CALICO_IMAGES_DIR}/images.txt"
 save_images_from_list "${CALICO_IMAGES_DIR}/images.txt" "${CALICO_IMAGES_DIR}"
 step_ok "generated and saved Calico images"
 
+step_start "generate and save StorageClass images"
+write_storageclass_image_list
+echo "[INFO] image list:"
+sed 's/^/[INFO]   /' "${STORAGECLASS_IMAGES_DIR}/images.txt"
+save_images_from_list "${STORAGECLASS_IMAGES_DIR}/images.txt" "${STORAGECLASS_IMAGES_DIR}"
+step_ok "generated and saved StorageClass images"
+
 echo
 echo "[CHECK] generate checksums"
 (
   cd "${ASSETS_ROOT}"
-  find kubernetes common -type f -print0 | sort -z | xargs -0 sha256sum > "${CHECKSUMS_DIR}/kubernetes-assets.sha256"
+  find kubernetes common -type f ! -path 'common/checksums/kubernetes-assets.sha256' -print0 |
+    sort -z |
+    xargs -0 sha256sum > "${CHECKSUMS_DIR}/kubernetes-assets.sha256"
 )
 
 DOWNLOAD_END_TS="$(date +%s)"
@@ -224,6 +257,7 @@ K8S_RPM_COUNT="$(find "${K8S_PACKAGES_DIR}" -maxdepth 1 -name '*.rpm' | wc -l | 
 RUNTIME_RPM_COUNT="$(find "${RUNTIME_PACKAGES_DIR}" -maxdepth 1 -name '*.rpm' | wc -l | tr -d ' ')"
 IMAGE_TAR_COUNT="$(find "${K8S_IMAGES_DIR}" -maxdepth 1 -name '*.tar' | wc -l | tr -d ' ')"
 CALICO_IMAGE_TAR_COUNT="$(find "${CALICO_IMAGES_DIR}" -maxdepth 1 -name '*.tar' | wc -l | tr -d ' ')"
+STORAGECLASS_IMAGE_TAR_COUNT="$(find "${STORAGECLASS_IMAGES_DIR}" -maxdepth 1 -name '*.tar' | wc -l | tr -d ' ')"
 MANIFEST_COUNT="$(find "${K8S_MANIFESTS_DIR}" -maxdepth 1 -name '*.yaml' | wc -l | tr -d ' ')"
 echo "[OK] generated checksums"
 echo
@@ -235,4 +269,5 @@ echo "[INFO]   Kubernetes rpm files: ${K8S_RPM_COUNT}"
 echo "[INFO]   Runtime rpm files: ${RUNTIME_RPM_COUNT}"
 echo "[INFO]   Kube-system image tar files: ${IMAGE_TAR_COUNT}"
 echo "[INFO]   Calico image tar files: ${CALICO_IMAGE_TAR_COUNT}"
+echo "[INFO]   StorageClass image tar files: ${STORAGECLASS_IMAGE_TAR_COUNT}"
 echo "[INFO]   Manifest yaml files: ${MANIFEST_COUNT}"

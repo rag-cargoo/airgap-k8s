@@ -1,9 +1,97 @@
 # 04. 서비스 배포 및 모니터링 설정
 
-아직 서비스 manifest 또는 Helm values를 작성하지 않은 장이다.
+04 단계는 `03`에서 구성한 Kubernetes 클러스터와 기본 StorageClass 위에 DB와 모니터링 서비스를 배포한다.
 
-bastion 기준 작성 원본 경로는 `/opt/airgap-k8s-ops/ops/04-services-monitoring/`이다.
+## 04-00. 사전 조건
+```bash
+cd <프로젝트-루트>
+make 03-03-storageclass-verify
+kubectl get storageclass
+kubectl get nodes -o wide
+```
 
-세부 실행 초안은 `prj-docs/projects/airgap-k8s/tasks/04-서비스-배포-및-모니터링-설정.md`에서 관리한다.
+설명: `local-path (default)`가 보여야 하며, worker 노드에 `DiskPressure` taint가 없어야 한다. PVC를 사용하는 MariaDB, MongoDB, Prometheus, Grafana는 기본 StorageClass가 없으면 `Pending` 상태로 멈춘다.
 
-실제 배포 후 `04-01.1`, `04-01.2` 형식으로 적용 명령과 검증 결과만 이 문서에 반영한다.
+## 04-01. MariaDB
+```bash
+make 04-01-mysql-or-mariadb-run
+make 04-01-mysql-or-mariadb-verify
+```
+
+설명: `docker.io/library/mariadb:11.4` 이미지를 폐쇄망 자산으로 저장하고 worker에 import한 뒤 `database` namespace에 StatefulSet, Service, Secret, PVC를 적용한다.
+
+세부 절차: [01-mysql-or-mariadb](./01-mysql-or-mariadb/README.md)
+
+## 04-02. MongoDB
+```bash
+make 04-02-mongodb-run
+make 04-02-mongodb-verify
+```
+
+설명: `docker.io/library/mongo:7.0` 이미지를 worker에 import하고 `database` namespace에 StatefulSet, Service, Secret, PVC를 적용한다.
+
+세부 절차: [02-mongodb](./02-mongodb/README.md)
+
+## 04-03. Prometheus
+```bash
+make 04-03-prometheus-run
+make 04-03-prometheus-verify
+```
+
+설명: `docker.io/prom/prometheus:v2.55.1` 이미지를 worker에 import하고 `monitoring` namespace에 StatefulSet, Service, ConfigMap, PVC를 적용한다.
+
+세부 절차: [03-prometheus](./03-prometheus/README.md)
+
+## 04-04. Grafana
+```bash
+make 04-04-grafana-run
+make 04-04-grafana-verify
+```
+
+설명: `docker.io/grafana/grafana:11.3.0` 이미지를 worker에 import하고 `monitoring` namespace에 Deployment, Service, Secret, datasource ConfigMap, PVC를 적용한다.
+
+세부 절차: [04-grafana](./04-grafana/README.md)
+
+## 04-05. Grafana Alloy
+```bash
+make 04-05-grafana-alloy-run
+make 04-05-grafana-alloy-verify
+```
+
+설명: `docker.io/grafana/alloy:v1.5.1` 이미지를 worker에 import하고 `monitoring` namespace에 Deployment, Service, ConfigMap을 적용한다.
+
+세부 절차: [05-grafana-alloy](./05-grafana-alloy/README.md)
+
+## 04-06. 전체 서비스 검증
+```bash
+make 04-services-monitoring-verify
+make 04-06-services-verify
+```
+
+설명: 서비스별 로컬 자산, worker의 containerd 이미지, workload Ready, PVC Bound, Service 객체 존재 여부를 검증한다.
+
+세부 절차: [06-services-verify](./06-services-verify/README.md)
+
+## 04-07. 실행 순서 요약
+```bash
+make 04-01-mysql-or-mariadb-run
+make 04-02-mongodb-run
+make 04-03-prometheus-run
+make 04-04-grafana-run
+make 04-05-grafana-alloy-run
+make 04-services-monitoring-verify
+```
+
+## 04-08. 검증 결과
+- `make 04-01-mysql-or-mariadb-run`: 성공
+- `make 04-02-mongodb-run`: 성공
+- `make 04-03-prometheus-run`: 성공
+- `make 04-04-grafana-run`: 성공
+- `make 04-05-grafana-alloy-run`: 성공
+- `make 04-services-monitoring-verify`: 성공
+- `database`: `mariadb-0`, `mongodb-0` 모두 `1/1 Running`
+- `monitoring`: `prometheus-0`, `grafana`, `alloy` 모두 `1/1 Running`
+- PVC: `data-mariadb-0`, `data-mongodb-0`, `data-prometheus-0`, `grafana-data` 모두 `Bound`
+
+## 04-09. 장애 참고
+8GB 루트 볼륨에서 서비스 이미지를 올리면 worker에 `DiskPressure`가 발생할 수 있다. 증상과 처리 절차는 [DiskPressure 트러블슈팅](../troubleshooting/04-services-diskpressure-root-volume.md)에 기록한다.

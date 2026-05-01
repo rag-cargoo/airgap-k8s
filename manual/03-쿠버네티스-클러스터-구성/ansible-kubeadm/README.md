@@ -11,4 +11,4 @@
 5. [05-calico](./05-calico/README.md)
 6. [06-worker-join](./06-worker-join/README.md)
 
-설명: Ansible 설치도 ops의 `ansible-kubeadm/01..06` 디렉터리와 같은 단계 번호를 공유한다. inventory, SSH 설정, bastion/control-node 분기는 공통 bootstrap 기준으로 맞춘다. 현재 `03-03-ansible-kubeadm-verify` target은 아직 미구현이다.
+설명: Ansible 설치도 ops의 `ansible-kubeadm/01..06` 디렉터리와 같은 단계 번호를 공유한다. inventory, SSH 설정, bastion/control-node 분기는 Ansible 전용 bootstrap 기준으로 맞춘다. 현재 `03-04-ansible-kubeadm-verify` target은 아직 미구현이다.

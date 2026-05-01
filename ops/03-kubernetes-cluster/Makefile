@@ -30,9 +30,18 @@ MANUAL_SCRIPTS := \
 	ops/03-kubernetes-cluster/manual-kubeadm/10-cluster-verify/scripts/10-02-troubleshoot-cluster.sh \
 	ops/03-kubernetes-cluster/manual-kubeadm/10-cluster-verify/scripts/10-03-local-kubectl-access.sh
 
+STORAGECLASS_SCRIPTS := \
+	ops/03-kubernetes-cluster/storageclass/scripts/03-03-01-run-storageclass-assets.sh \
+	ops/03-kubernetes-cluster/storageclass/scripts/03-03-01-verify-storageclass-assets.sh \
+	ops/03-kubernetes-cluster/storageclass/scripts/03-03-02-run-storageclass-image-import.sh \
+	ops/03-kubernetes-cluster/storageclass/scripts/03-03-02-verify-storageclass-image-import.sh \
+	ops/03-kubernetes-cluster/storageclass/scripts/03-03-03-run-storageclass-apply.sh \
+	ops/03-kubernetes-cluster/storageclass/scripts/03-03-03-verify-storageclass-apply.sh
+
 .PHONY: help \
 	03-01-preflight-run 03-01-preflight-verify 03-01-preflight-clear 03-01-preflight-script-verify \
 	03-02-manual-kubeadm-run 03-02-manual-kubeadm-verify 03-02-manual-kubeadm-troubleshoot 03-02-manual-kubeadm-clear 03-02-manual-kubeadm-script-verify \
+	03-03-storageclass-run 03-03-storageclass-verify 03-03-storageclass-clear 03-03-storageclass-script-verify \
 	03-02-local-kubectl-start 03-02-local-kubectl-stop 03-02-local-kubectl-status 03-02-local-kubectl-prepare 03-02-local-kubectl-install 03-02-local-kubectl-setup 03-02-local-kubectl-default \
 	step-03-02-01-access-and-transfer-run step-03-02-01-access-and-transfer-verify \
 	step-03-02-02-preflight-run step-03-02-02-preflight-verify \
@@ -43,7 +52,10 @@ MANUAL_SCRIPTS := \
 	step-03-02-07-control-plane-init-run step-03-02-07-control-plane-init-verify \
 	step-03-02-08-calico-run step-03-02-08-calico-verify \
 	step-03-02-09-worker-join-run step-03-02-09-worker-join-verify \
-	step-03-02-10-cluster-verify
+	step-03-02-10-cluster-verify \
+	step-03-03-01-storageclass-assets-run step-03-03-01-storageclass-assets-verify \
+	step-03-03-02-storageclass-image-import-run step-03-03-02-storageclass-image-import-verify \
+	step-03-03-03-storageclass-apply-run step-03-03-03-storageclass-apply-verify
 
 help:
 	@printf "Targets:\n\n"
@@ -70,6 +82,14 @@ help:
 	@printf "  step-03-02-08-calico-run / verify\n"
 	@printf "  step-03-02-09-worker-join-run / verify\n"
 	@printf "  step-03-02-10-cluster-verify\n\n"
+	@printf "[03-03 StorageClass]\n"
+	@printf "  03-03-storageclass-run             Apply local-path-provisioner and verify dynamic PVC\n"
+	@printf "  03-03-storageclass-verify          Verify local-path-provisioner and dynamic PVC\n"
+	@printf "  03-03-storageclass-clear           Clear StorageClass state marker only\n"
+	@printf "  03-03-storageclass-script-verify   Verify StorageClass scripts syntax\n"
+	@printf "  step-03-03-01-storageclass-assets-run / verify\n"
+	@printf "  step-03-03-02-storageclass-image-import-run / verify\n"
+	@printf "  step-03-03-03-storageclass-apply-run / verify\n\n"
 	@printf "[Compatibility]\n"
 	@printf "  03-01-preflight-run/verify call manual kubeadm step 02 preflight\n"
 
@@ -155,6 +175,39 @@ help:
 		bash -n ops/03-kubernetes-cluster/manual-kubeadm/10-cluster-verify/scripts/10-02-troubleshoot-cluster.sh && \
 		bash -n ops/03-kubernetes-cluster/manual-kubeadm/10-cluster-verify/scripts/10-03-local-kubectl-access.sh && \
 		printf "[OK] manual kubeadm scripts verified\n"'
+
+03-03-storageclass-run:
+	@cd "$(PROJECT_ROOT)" && chmod +x $(BANNER) $(STATE) $(STORAGECLASS_SCRIPTS)
+	@cd "$(PROJECT_ROOT)" && ./$(BANNER) "03-03-storageclass-run" "run" bash -lc '\
+		$(MAKE) -C "$(CURDIR)" step-03-03-01-storageclass-assets-run && \
+		$(MAKE) -C "$(CURDIR)" step-03-03-01-storageclass-assets-verify && \
+		$(MAKE) -C "$(CURDIR)" step-03-03-02-storageclass-image-import-run && \
+		$(MAKE) -C "$(CURDIR)" step-03-03-02-storageclass-image-import-verify && \
+		$(MAKE) -C "$(CURDIR)" step-03-03-03-storageclass-apply-run && \
+		$(MAKE) -C "$(CURDIR)" step-03-03-03-storageclass-apply-verify && \
+		./ops/common/scripts/stage-state.sh set-success "03-storageclass"'
+
+03-03-storageclass-verify:
+	@cd "$(PROJECT_ROOT)" && chmod +x $(BANNER) $(STORAGECLASS_SCRIPTS)
+	@cd "$(PROJECT_ROOT)" && ./$(BANNER) "03-03-storageclass-verify" "verify" bash -lc '\
+		$(MAKE) -C "$(CURDIR)" step-03-03-01-storageclass-assets-verify && \
+		$(MAKE) -C "$(CURDIR)" step-03-03-02-storageclass-image-import-verify && \
+		$(MAKE) -C "$(CURDIR)" step-03-03-03-storageclass-apply-verify'
+
+03-03-storageclass-clear:
+	@cd "$(PROJECT_ROOT)" && chmod +x $(STATE)
+	@cd "$(PROJECT_ROOT)" && ./$(STATE) clear "03-storageclass"
+
+03-03-storageclass-script-verify:
+	@cd "$(PROJECT_ROOT)" && chmod +x $(BANNER)
+	@cd "$(PROJECT_ROOT)" && ./$(BANNER) "03-03-storageclass-script-verify" "verify" bash -lc '\
+		bash -n ops/03-kubernetes-cluster/storageclass/scripts/03-03-01-run-storageclass-assets.sh && \
+		bash -n ops/03-kubernetes-cluster/storageclass/scripts/03-03-01-verify-storageclass-assets.sh && \
+		bash -n ops/03-kubernetes-cluster/storageclass/scripts/03-03-02-run-storageclass-image-import.sh && \
+		bash -n ops/03-kubernetes-cluster/storageclass/scripts/03-03-02-verify-storageclass-image-import.sh && \
+		bash -n ops/03-kubernetes-cluster/storageclass/scripts/03-03-03-run-storageclass-apply.sh && \
+		bash -n ops/03-kubernetes-cluster/storageclass/scripts/03-03-03-verify-storageclass-apply.sh && \
+		printf "[OK] StorageClass scripts verified\n"'
 
 03-02-local-kubectl-start:
 	@cd "$(PROJECT_ROOT)" && chmod +x $(MANUAL_SCRIPTS)
@@ -257,3 +310,27 @@ step-03-02-09-worker-join-verify:
 step-03-02-10-cluster-verify:
 	@cd "$(PROJECT_ROOT)" && chmod +x $(MANUAL_SCRIPTS)
 	@cd "$(PROJECT_ROOT)" && ./ops/03-kubernetes-cluster/manual-kubeadm/10-cluster-verify/scripts/10-01-verify-cluster.sh
+
+step-03-03-01-storageclass-assets-run:
+	@cd "$(PROJECT_ROOT)" && chmod +x $(STORAGECLASS_SCRIPTS)
+	@cd "$(PROJECT_ROOT)" && ./ops/03-kubernetes-cluster/storageclass/scripts/03-03-01-run-storageclass-assets.sh
+
+step-03-03-01-storageclass-assets-verify:
+	@cd "$(PROJECT_ROOT)" && chmod +x $(STORAGECLASS_SCRIPTS)
+	@cd "$(PROJECT_ROOT)" && ./ops/03-kubernetes-cluster/storageclass/scripts/03-03-01-verify-storageclass-assets.sh
+
+step-03-03-02-storageclass-image-import-run:
+	@cd "$(PROJECT_ROOT)" && chmod +x $(STORAGECLASS_SCRIPTS)
+	@cd "$(PROJECT_ROOT)" && ./ops/03-kubernetes-cluster/storageclass/scripts/03-03-02-run-storageclass-image-import.sh
+
+step-03-03-02-storageclass-image-import-verify:
+	@cd "$(PROJECT_ROOT)" && chmod +x $(STORAGECLASS_SCRIPTS)
+	@cd "$(PROJECT_ROOT)" && ./ops/03-kubernetes-cluster/storageclass/scripts/03-03-02-verify-storageclass-image-import.sh
+
+step-03-03-03-storageclass-apply-run:
+	@cd "$(PROJECT_ROOT)" && chmod +x $(STORAGECLASS_SCRIPTS)
+	@cd "$(PROJECT_ROOT)" && ./ops/03-kubernetes-cluster/storageclass/scripts/03-03-03-run-storageclass-apply.sh
+
+step-03-03-03-storageclass-apply-verify:
+	@cd "$(PROJECT_ROOT)" && chmod +x $(STORAGECLASS_SCRIPTS)
+	@cd "$(PROJECT_ROOT)" && ./ops/03-kubernetes-cluster/storageclass/scripts/03-03-03-verify-storageclass-apply.sh

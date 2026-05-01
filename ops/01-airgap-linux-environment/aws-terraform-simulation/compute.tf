@@ -78,6 +78,11 @@ resource "aws_instance" "master" {
   vpc_security_group_ids      = [aws_security_group.k8s_nodes.id]
   associate_public_ip_address = false
 
+  root_block_device {
+    volume_size = var.node_root_volume_size
+    volume_type = "gp3"
+  }
+
   tags = merge(local.common_tags, {
     Name = "k8s-master"
     Role = "master"
@@ -91,6 +96,11 @@ resource "aws_instance" "worker1" {
   key_name                    = var.key_pair_name
   vpc_security_group_ids      = [aws_security_group.k8s_nodes.id]
   associate_public_ip_address = false
+
+  root_block_device {
+    volume_size = var.node_root_volume_size
+    volume_type = "gp3"
+  }
 
   tags = merge(local.common_tags, {
     Name = "k8s-worker1"

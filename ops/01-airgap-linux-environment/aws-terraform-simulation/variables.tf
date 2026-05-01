@@ -61,3 +61,9 @@ variable "node_instance_type" {
   type        = string
   default     = "m7i-flex.large"
 }
+
+variable "node_root_volume_size" {
+  description = "Root EBS volume size in GiB for Kubernetes master and worker nodes"
+  type        = number
+  default     = 30
+}

@@ -103,11 +103,14 @@ run_verify "공통 bastion 실행 원본 번들 검증" make ops-runtime-bundle-
 run_verify "02-01 사용자 및 네트워크 설정 실제 적용 검증" make 02-01-user-network-verify || true
 run_verify "03-01 master/worker 원격 preflight 검증" make 03-01-preflight-verify || true
 run_verify "manual-kubeadm 01~10 실제 설치 검증" make 03-02-manual-kubeadm-verify || true
+run_verify "03-03 기본 StorageClass 검증" make 03-03-storageclass-verify || true
+run_verify "04 서비스 및 모니터링 배포 검증" make 04-services-monitoring-verify || true
+run_verify "05 Prometheus/Grafana 외부 접근 검증" make 05-prometheus-grafana-external-access-verify || true
 
-if make_target_exists "03-03-ansible-kubeadm-verify"; then
-  run_verify "ansible-kubeadm 01~06 실제 실행 검증" make 03-03-ansible-kubeadm-verify || true
+if make_target_exists "03-04-ansible-kubeadm-verify"; then
+  run_verify "ansible-kubeadm 01~06 실제 실행 검증" make 03-04-ansible-kubeadm-verify || true
 else
-  run_pending "ansible-kubeadm 01~06 실제 실행 검증" "03-03-ansible-kubeadm-verify target is not implemented yet."
+  run_pending "ansible-kubeadm 01~06 실제 실행 검증" "03-04-ansible-kubeadm-verify target is not implemented yet."
 fi
 
 OVERALL_TOTAL=${#STAGE_LABELS[@]}
