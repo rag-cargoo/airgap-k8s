@@ -40,9 +40,13 @@ AIRGAP_MASTER_PRIVATE_IP="$(tf_output_raw master_private_ip)"
 AIRGAP_WORKER1_PRIVATE_IP="$(tf_output_raw worker1_private_ip)"
 
 AIRGAP_SSH_USER="${AIRGAP_SSH_USER:-ec2-user}"
-AIRGAP_SSH_KEY_PATH="${AIRGAP_SSH_KEY_PATH:-/home/aki/.aws/key/260428-k8s-key.pem}"
+AIRGAP_SSH_KEY_PATH="${AIRGAP_SSH_KEY_PATH:-}"
 AIRGAP_OFFLINE_ASSETS_ARCHIVE="${AIRGAP_OFFLINE_ASSETS_ARCHIVE:-offline-assets.tar.gz}"
 AIRGAP_SERVER_ASSETS_DIR="${AIRGAP_SERVER_ASSETS_DIR:-/opt/offline-assets}"
+
+if [[ -z "${AIRGAP_SSH_KEY_PATH}" ]]; then
+  echo "[WARN] AIRGAP_SSH_KEY_PATH is empty. Set your local private key path in .env before SSH-based steps."
+fi
 
 cat > "${ENV_FILE}" <<EOF
 AIRGAP_SSH_USER=${AIRGAP_SSH_USER}
