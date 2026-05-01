@@ -9,7 +9,7 @@ access:
   control_node_host: ""
   control_node_ip: ""
   ssh_user: "ec2-user"
-  ssh_key_path: "/home/aki/.aws/key/260428-k8s-key.pem"
+  ssh_key_path: ""
   ssh_port: 22
   proxy_jump_required: true
 
